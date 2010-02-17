@@ -1,0 +1,185 @@
+@author: Dirk Baechle
+@title: Specification of the xmlwiko language
+
+== Basics == basic
+
+An xmlwiko file ($$*.wiki$$) consists of text blocks. These blocks
+are separated by one or more blank lines (2+ newlines). A text block itself
+does not contain blank lines.
+
+The markups for the text can be divided into the categories:
+sections, lists, environments and simple paragraphs with markup.
+
+== Sections == sections
+
+Sections outline the structure of your text. You can indent or dedent sections
+to any level you like, so we need ways of adding a subsection or closing
+several opened sections at once (dedent).
+
+A simple section is started by the code:
+
+Code: javascript
+== title == [id]
+
+As the square brackets imply, the id is optional for you...but required for
+the Forrest DTD. You can leave it out, then the given title will be joined
+by underscores '$$_$$' and the result converted to lowercase as the id of this
+section.
+
+Starting a section like this will keep the current indentation level. So if
+another section has been opened before, it will be closed first.
+If you want to open a subsection (indent) you type:
+
+Code:
+==+ title == [id]
+
+Note the '$$+$$' that signals: I want to increment the level of indentation.
+
+While you can only increment by steps of one, you can dedent arbitrarily
+using:
+
+Code:
+==-- title == [id]
+
+Here we dedent by two, which effectively results in closing the last three
+sections...and then opening the new one.
+
+Larger levels of dedent can be directly entered with a single minus, followed
+by an integer number:
+
+Code:
+==-7 title == [id]
+
+At the end of the text, all sections that are still open get closed
+automatically.
+
+Finally, you can jump to a lower indent by directly giving the number of
+section indent behind the starting tag:
+
+Code:
+==0 title == [id]
+
+for starting a new section at the top level (all opened sections are closed first).
+
+== Simple paragraphs == para
+
+The following markups are local to a text block. They have to appear matched,
+because they don't get closed automatically
+at the end of the block.
+
+Emphasis (em)
+
+Code:
+//emphasis//
+
+Bold (strong)
+
+Code:
+!!bold!!
+
+HTML link
+
+Code:
+[[URL text]]
+
+Code words, variables verbatim text inline
+
+Code: (code)
+$$optionList$$
+
+Images
+
+Code:
+<<URL>>
+or
+<<URL||alt="alt" name="" width=""...>>
+
+Anchor (<anchor id=""/>)
+
+Code:
+@@label_id@@
+
+
+A paragraph can also be started as environment with the '$$Para:$$' keyword:
+
+{{Code:
+Para:
+Starts a new paragraph at the current indent.
+Para:-2
+Closes the last two environments in the current section and starts a new paragraph
+}}
+
+These get important when you want to mix paragraphs and list/list items.
+
+== Lists ==
+
+Within a list block you can indent/dedent the item level and also
+change between ordered, unordered and description lists.
+The opening and closing of the single environments is handled by xmlwiko.
+
+{{Code:
+# first
+# second
+# new first
+# parent 1
+## child 1
+##* non numerated child
+##* non numerated child
+## child 2
+### subchild 1
+## child 3
+##~ dt||dd (description list)
+# parent 2
+}}
+
+
+Also possible for mixing paragraphs and list items:
+
+{{Code:
+List:-4
+# Closes the last four envs before opening a new list.
+List:
+#* Opens a new list at the current env level.
+}}
+
+
+== Environments ==
+
+Just like normal sections, environments may contain several paragraphs
+
+
+Code:
+
+versus
+
+{{Code:
+
+}}
+
+Available environments are: Abstract, Keywords, TODO, Code, Comment, Definition,
+Lemma, Proof, Theorem, Corollary, Quote
+
+Fixme, Warning, Note, Important
+
+z.B.:
+<note label=""></note>
+
+
+<source xml:space="preserve">
+  code text
+</source>
+
+Not to forget the two specials: List and Para (for mixed list/paragraph sections).
+
+== Special stuff ==
+
+The \blank marker was introduced as an escaped sequence. So if you want to
+print out code that contains the end marker }} you can do this, in fact.
+Simply write
+
+Code:
+{{Code:
+  A test
+}\bla\blanknk}
+}}
+
