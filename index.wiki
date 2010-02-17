@@ -1,9 +1,9 @@
 @author: Dirk Baechle
 @title: xmlwiko
 
-Fundamentally lazy, I always try to minimize work...even when
+Fundamentally lazy, I always try to minimize my efforts to get work done...even when
 editing homepages. So when I planned to rewrite this site, I did not want
-to fiddle with ApacheForrest XML allday long. Inspired by [[http://wiko.sf.net
+to fiddle with ApacheForrest XML the whole day. Instead, inspired by [[http://wiko.sf.net
 WiKo (the Wiki Compiler)]] I hacked together this little script.
 
 It is not pretty, nor complete...but it does a good job in keeping me
@@ -34,16 +34,16 @@ and you get Docbook XML files instead. Easy!
 
 == Basics == basic
 
-An xmlwiko file ($$*.wiki$$) consists of text blocks. These blocks
+An xmlwiko file ($$*.wiki$$) is an UTF8 encoded file that consists of text blocks. These blocks
 are separated by one or more blank lines (2+ newlines). A text block itself
-does not contain blank lines.
+can not contain blank lines.
 
 At the start of each file you should place a header with the %%title%%
 and %%author%% variables as follows:
 
 Code:
-@title: Title of the document
-@author: Whowrote This
+\blank@title: Title of the document
+\blank@author: Whowrote This
 
 The markups for the text can be divided into the categories:
 sections, simple paragraphs, lists and environments.
@@ -108,7 +108,7 @@ at the end of the block:
 Emphasis (em)
 
 Code:
-This is an //emphasis//.
+This is an \\emphasis\\.
 
 Bold (strong)
 
@@ -149,22 +149,27 @@ because we want to add special attributes like %%vlink%% or %%width%%.
 First, let's have a look at the basic forms:
 
 ~$$[\blank[href text]\blank]$$||Creates a link to the URL %%href%% with %%text%% as the link text.
-~$$$$||
-We might need to give
-HTML link
+~$$&lt;&lt;href>>$$||Places an %%img%% tag (or $$inlinemediaobject$$) for the image %%href%% at the current position.
+~$$Figure:$$||A \\figure\\ is an image that stands on its own line, it can have a title and is specified
+like an environment.</p>
+<source xml:space="preserve">
+Figure: href
+Title/description of the figure.
+</source>
+<p>While the $$href$$ is mandatory, you can leave out the title. This results in a simple image without any description
+(a.k.a $$mediaobject$$ in Docbook).
+
+Now when you want to give some special attributes to these three tags, you can split the $$text$$ for the link and the
+$$href$$ for the images into two parts by a %%||%%. The first part is recognized as list of attributes then, while the
+rest is used as text or link to the actual image.
+
+Some examples:
 
 Code:
-[[URL text]]
-
-
-Images
-
-Code:
-&lt;&lt;URL>>
-or
-&lt;&lt;URL||alt="alt" name="" width=""...>>
-
-
+[[index.html vlink="#C0C0C0"||Visit this page!]]
+&lt;&lt;test.png||alt="test" width="80%">>
+Figure: er2.png||alt="er2" width="100%"
+The parallel computer ER2.
 
 
 == Lists ==
@@ -234,17 +239,17 @@ as %%&amp;lt;%%!
 
 You may wonder why all the markers for environments are doubled up. The reason behind
 this is, that we might want to print a ''%\blank%'' in the middle of our text
-(uh, oh...there it happened already).
+(uh, oh...there it happened already). And if there is a real %%quoted%% environment in the same text block, the script gets confused easily.
 
-For this case the %%\bl\blankank%% marker was introduced as a special ''escape sequence''.
+For this case, the %%\bl\blankank%% marker was introduced as a special ''escape sequence''.
 It gets replaced with a string of zero length for the final output (after
 all other processing work was done).
 
 So if you want a  ''%\blank%'' in your text you can type:
 
 Code:
-''%\blank%''
+''%\bl\blankank%''
 
 Final question: ''What do you have to type in order to get %%\bl\blankank%% in
-the output?'' $$;-)$$
+the output?'' $$:)$$
 

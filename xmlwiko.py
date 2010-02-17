@@ -16,7 +16,7 @@
 # this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
-xmlwiko v1.1: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+xmlwiko v1.2: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
               Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
               the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
 """
@@ -51,7 +51,7 @@ def processVerbatim(txt, language):
 header = re.compile(r"^==(\+|-*|-?[0-9]+)\s*([^=]+)\s*=*\s*(.*)$")
 
 # Regular expressions
-em = re.compile(r"//([^/]*)//")
+em = re.compile(r"\\\\([^\\]*)\\\\")
 strong = re.compile(r"!!([^!]*)!!")
 quote = re.compile(r"''([^']*)''")
 code = re.compile(r"\$\$([^\$]*)\$\$")
@@ -313,24 +313,15 @@ class WikiCompiler :
             if listMatch and listMatch.start() == 0:
                 blockType = "List"
             else:
-                varMatch = var.match(text)
-                if varMatch and varMatch.start() == 0:
-                    blockType = "Var"
-                    for l in block:
-                        varMatch = var.match(l)
-                        if varMatch:
-                            self.vars[varMatch.group(1)] = varMatch.group(2)
-                    return
-                else:
-                    # Is it a section header?
-                    headerMatch = header.match(block[0])
-                    if headerMatch and headerMatch.start() == 0:
-                        blockType = "Section"
-                        addIndent = headerMatch.group(1)
-                        sectionTitle = headerMatch.group(2).rstrip()
-                        sectionId = headerMatch.group(3)
-                        if sectionId.strip() == "":
-                            sectionId = '_'.join([f.lower() for f in sectionTitle.split()])
+                # Is it a section header?
+                headerMatch = header.match(block[0])
+                if headerMatch and headerMatch.start() == 0:
+                    blockType = "Section"
+                    addIndent = headerMatch.group(1)
+                    sectionTitle = headerMatch.group(2).rstrip()
+                    sectionId = headerMatch.group(3)
+                    if sectionId.strip() == "":
+                        sectionId = '_'.join([f.lower() for f in sectionTitle.split()])
         
         # Step 2: Close old envs, based on block type and current indents
         if blockType == "Section":
@@ -361,7 +352,8 @@ class WikiCompiler :
         if blockType == "Section":
             self.openBlocks.append('Section')
             self.sectionIndent += 1
-            self.result += "%s\n" % (self.envTags['Section'][0] % {'title':sectionTitle, 'id':sectionId})
+            text = "%s\n" % (self.envTags['Section'][0] % {'title':sectionTitle, 'id':sectionId})
+            self.result += self.inlineReplace(text)
             return
         
         # Step 4: Process block=
@@ -400,7 +392,10 @@ class WikiCompiler :
         # Step 4b: Replace inline expressions
         if blockType != "Code":
             text = self.inlineReplace(text)
-
+        else:
+            # Replace \blank escape sequences
+            text = text.replace("\\blank","")
+            
         # Step 5: Wrap block in environment tags
         if envStarted:
             text = "%s\n%s" % (self.envTags[self.currentEnvironment][0],text)
@@ -422,23 +417,6 @@ class WikiCompiler :
         return text
         
     def inlineReplace(self, text):
-        # Find and replace URLs
-        uMatch = url.search(text)
-        while uMatch:
-            href = uMatch.group(1)
-            atxt = uMatch.group(2)
-            urlatts = ""
-            seppos = atxt.find("||")
-            if seppos > 0:
-                urlatts = ' '+atxt[:seppos]
-                atxt = atxt[seppos+2:]
-            text = (text[:uMatch.start()] + 
-                    self.dictTags['ulink'] % {'url' : href,
-                                              'atts' : urlatts,
-                                              'linktext' : atxt} + 
-                    text[uMatch.end():])
-            uMatch = url.search(text)
-            
         # Find and replace images
         iMatch = img.search(text)
         while iMatch:
@@ -457,6 +435,23 @@ class WikiCompiler :
                 
             iMatch = img.search(text)
         
+        # Find and replace URLs
+        uMatch = url.search(text)
+        while uMatch:
+            href = uMatch.group(1)
+            atxt = uMatch.group(2)
+            urlatts = ""
+            seppos = atxt.find("||")
+            if seppos > 0:
+                urlatts = ' '+atxt[:seppos]
+                atxt = atxt[seppos+2:]
+            text = (text[:uMatch.start()] + 
+                    self.dictTags['ulink'] % {'url' : href,
+                                              'atts' : urlatts,
+                                              'linktext' : atxt} + 
+                    text[uMatch.end():])
+            uMatch = url.search(text)
+                    
         # Apply non-greedy inline substitutions to the joined block
         text = self.replaceAll(text, em, self.inlineTags["em"][0], self.inlineTags["em"][1])
         text = self.replaceAll(text, strong, self.inlineTags["strong"][0], self.inlineTags["strong"][1])
