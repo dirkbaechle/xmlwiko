@@ -1,5 +1,36 @@
 @author: Dirk Baechle
-@title: Specification of the xmlwiko language
+@title: xmlwiko
+
+Fundamentally lazy, I always try to minimize work...even when
+editing homepages. So when I planned to rewrite this site, I did not want
+to fiddle with ApacheForrest XML allday long. Inspired by [[http://wiko.sf.net
+WiKo (the Wiki Compiler)]] I hacked together this little script.
+
+It is not pretty, nor complete...but it does a good job in keeping me
+concentrated on creating simple pages for this website (or for Docbook XML).
+
+== Current version == version
+
+~[[xmlwiko.zip xmlwiko]]||Archive with the Python script and the $$*.wiki$$
+source for this page.
+
+== Usage ==
+
+Simply start the script as
+
+Code:
+python xmlwiko.py
+
+and it will traverse the current directory. Whenever it finds a $$*.wiki$$ file
+it converts it into an XML file, conforming to the ApacheForrest DTD.
+
+You can also start $$xmlwiko$$ with an additional argument (the exact text
+does not matter):
+
+Code:
+python xmlwiko.py db
+
+and you get Docbook XML files instead. Easy!
 
 == Basics == basic
 
@@ -7,8 +38,15 @@ An xmlwiko file ($$*.wiki$$) consists of text blocks. These blocks
 are separated by one or more blank lines (2+ newlines). A text block itself
 does not contain blank lines.
 
+At the start of each file you should place a header with the %%title%%
+and %%author%% variables as follows:
+
+Code:
+@title: Title of the document
+@author: Whowrote This
+
 The markups for the text can be divided into the categories:
-sections, lists, environments and simple paragraphs with markup.
+sections, simple paragraphs, lists and environments.
 
 == Sections == sections
 
@@ -18,22 +56,22 @@ several opened sections at once (dedent).
 
 A simple section is started by the code:
 
-Code: javascript
+Code:
 == title == [id]
 
 As the square brackets imply, the id is optional for you...but required for
 the Forrest DTD. You can leave it out, then the given title will be joined
-by underscores '$$_$$' and the result converted to lowercase as the id of this
+by underscores %%_%% and the result converted to lowercase as the id of this
 section.
 
-Starting a section like this will keep the current indentation level. So if
+Starting a section like this, will keep the current indentation level. So if
 another section has been opened before, it will be closed first.
 If you want to open a subsection (indent) you type:
 
 Code:
 ==+ title == [id]
 
-Note the '$$+$$' that signals: I want to increment the level of indentation.
+Note the %%+%% that signals: ''I want to increment the level of indentation''.
 
 While you can only increment by steps of one, you can dedent arbitrarily
 using:
@@ -53,133 +91,160 @@ Code:
 At the end of the text, all sections that are still open get closed
 automatically.
 
-Finally, you can jump to a lower indent by directly giving the number of
+Finally, you can jump to a lower level of indentation by directly giving the
 section indent behind the starting tag:
 
 Code:
 ==0 title == [id]
 
-for starting a new section at the top level (all opened sections are closed first).
+for starting a new section at the top level $$0$$ (all opened sections are closed first).
 
 == Simple paragraphs == para
 
-The following markups are local to a text block. They have to appear matched,
+The following markups are local to a text block (=paragraph). They have to appear matched,
 because they don't get closed automatically
-at the end of the block.
+at the end of the block:
 
 Emphasis (em)
 
 Code:
-//emphasis//
+This is an //emphasis//.
 
 Bold (strong)
 
 Code:
-!!bold!!
+A !!bold!! word.
 
+Double quotes
+
+Code:
+Enter ''quit'' to get out of here.
+
+Code words (like variables or verbatim inline text)
+
+Code:
+This $$optionList$$ is never referenced.
+
+Code words, enclosed in double quotes
+
+Code:
+The %%vlink%% attribute can be used for images.
+
+Anchor (&lt;anchor id=""/&gt;)
+
+Code:
+@@label_id@@
+
+== Links, Images, Figures == links
+
+These three elements confront us with a new problem: attributes. Sometimes it is simply not enough
+to say
+
+Code:
+&lt;a href="test.html">test&lt;/a>
+or
+&lt;img src="test.png"/>
+
+because we want to add special attributes like %%vlink%% or %%width%%.
+First, let's have a look at the basic forms:
+
+~$$[\blank[href text]\blank]$$||Creates a link to the URL %%href%% with %%text%% as the link text.
+~$$$$||
+We might need to give
 HTML link
 
 Code:
 [[URL text]]
 
-Code words, variables verbatim text inline
-
-Code: (code)
-$$optionList$$
 
 Images
 
 Code:
-<<URL>>
+&lt;&lt;URL>>
 or
-<<URL||alt="alt" name="" width=""...>>
-
-Anchor (<anchor id=""/>)
-
-Code:
-@@label_id@@
+&lt;&lt;URL||alt="alt" name="" width=""...>>
 
 
-A paragraph can also be started as environment with the '$$Para:$$' keyword:
 
-{{Code:
-Para:
-Starts a new paragraph at the current indent.
-Para:-2
-Closes the last two environments in the current section and starts a new paragraph
-}}
-
-These get important when you want to mix paragraphs and list/list items.
 
 == Lists ==
 
 Within a list block you can indent/dedent the item level and also
-change between ordered, unordered and description lists.
+change between ordered ($$#$$), unordered ($$*$$) and description lists ($$~$$).
 The opening and closing of the single environments is handled by xmlwiko.
+Just like for normal environments, only one paragraph per list item is allowed.
 
-{{Code:
-# first
-# second
-# new first
-# parent 1
-## child 1
-##* non numerated child
-##* non numerated child
-## child 2
-### subchild 1
-## child 3
-##~ dt||dd (description list)
-# parent 2
-}}
+Note:
+The description lists ($$~$$) can not be nested further, so the single %%~%%
+is always the rightmost element of a list specification!
 
+Code:
+#first
+more text for first item
+#second
+#parent 1
+##child 1
+more text for child 1 item
+##*non numerated child
+##*non numerated child
+##child 2
+###subchild 1
+#child 3
+##~dt||dd (description list)
+#parent 2
 
-Also possible for mixing paragraphs and list items:
+results in:
 
-{{Code:
-List:-4
-# Closes the last four envs before opening a new list.
-List:
-#* Opens a new list at the current env level.
-}}
-
+#first
+more text for first item
+#second
+#parent 1
+##child 1
+more text for child 1 item
+##*non numerated child
+##*non numerated child
+##child 2
+###subchild 1
+#child 3
+##~dt||dd (description list)
+#parent 2
 
 == Environments ==
 
-Just like normal sections, environments may contain several paragraphs
-
+You can open special text blocks as an ''environment'' by prepending
+a line with the block type as follows:
 
 Code:
+Abstract:
+Here we write text for our
+abstract...
 
-versus
+At the moment, environments support only one paragraph!
+Available environments are: 
 
-{{Code:
+Code, Figure, Abstract, Remark, Note, Important,
+Warning, Caution, Keywords, TODO, Definition,
+Lemma, Proof, Theorem and Corollary.
 
-}}
-
-Available environments are: Abstract, Keywords, TODO, Code, Comment, Definition,
-Lemma, Proof, Theorem, Corollary, Quote
-
-Fixme, Warning, Note, Important
-
-z.B.:
-<note label=""></note>
-
-
-<source xml:space="preserve">
-  code text
-</source>
-
-Not to forget the two specials: List and Para (for mixed list/paragraph sections).
+Note:
+When using the $$Code$$ environment, you still have to escape the %%&lt;%%
+as %%&amp;lt;%%!
 
 == Special stuff ==
 
-The \blank marker was introduced as an escaped sequence. So if you want to
-print out code that contains the end marker }} you can do this, in fact.
-Simply write
+You may wonder why all the markers for environments are doubled up. The reason behind
+this is, that we might want to print a ''%\blank%'' in the middle of our text
+(uh, oh...there it happened already).
+
+For this case the %%\bl\blankank%% marker was introduced as a special ''escape sequence''.
+It gets replaced with a string of zero length for the final output (after
+all other processing work was done).
+
+So if you want a  ''%\blank%'' in your text you can type:
 
 Code:
-{{Code:
-  A test
-}\bla\blanknk}
-}}
+''%\blank%''
+
+Final question: ''What do you have to type in order to get %%\bl\blankank%% in
+the output?'' $$;-)$$
 

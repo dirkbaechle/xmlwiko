@@ -1,3 +1,4 @@
+# coding: latin-1
 # Copyright (c) 2009 Dirk Baechle.
 # www: http://www.mydarc.de/dl9obn/programming/python/xmlwiko
 # mail: dl9obn AT darc.de
@@ -15,9 +16,9 @@
 # this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
-xmlwiko: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
-         Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
-         the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
+xmlwiko v1.1: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+              Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
+              the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
 """
  
 import glob
@@ -54,6 +55,7 @@ em = re.compile(r"//([^/]*)//")
 strong = re.compile(r"!!([^!]*)!!")
 quote = re.compile(r"''([^']*)''")
 code = re.compile(r"\$\$([^\$]*)\$\$")
+quotedcode = re.compile(r"%%([^\%]*)%%")
 url = re.compile(r"\[\[([^\s]*)\s+([^\]]*)\]\]")
 anchor = re.compile(r"@@([^@]*)@@")
 img = re.compile(r"<<([^>]*)>>")
@@ -96,6 +98,7 @@ inlineTagsForrest = {'em' : ['<em>', '</em>'],
               'strong' : ['<strong>', '</strong>'],
               'quote' : ['&quot;', '&quot;'],
               'code' : ['<code>', '</code>'],
+              'quotedcode' : ['&quot;<code>', '</code>&quot;'],
               'anchor' : ['<a id="', '"/>']}
 dictTagsForrest = {'ulink' : '<a href="%(url)s"%(atts)s>%(linktext)s</a>',
                    'inlinemediaobject' : '<img src="%(fref)s"%(atts)s/>',
@@ -147,6 +150,7 @@ inlineTagsDocbook = {'em' : ['<emphasis>', '</emphasis>'],
               'strong' : ['<emphasis role="bold">', '</emphasis>'],
               'quote' : ['<quote>', '</quote>'],
               'code' : ['<code>', '</code>'],
+              'quotedcode' : ['<quote><code>', '</code></quote>'],
               'anchor' : ['<a id="', '"/>']}
 dictTagsDocbook = {'ulink' : '<ulink url="%(url)s">%(linktext)s</ulink>',
                    'inlinemediaobject' : '<inlinemediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></inlinemediaobject>',
@@ -458,9 +462,10 @@ class WikiCompiler :
         text = self.replaceAll(text, strong, self.inlineTags["strong"][0], self.inlineTags["strong"][1])
         text = self.replaceAll(text, quote, self.inlineTags["quote"][0], self.inlineTags["quote"][1])
         text = self.replaceAll(text, code, self.inlineTags["code"][0], self.inlineTags["code"][1])
+        text = self.replaceAll(text, quotedcode, self.inlineTags["quotedcode"][0], self.inlineTags["quotedcode"][1])
         text = self.replaceAll(text, anchor, self.inlineTags["anchor"][0], self.inlineTags["anchor"][1])
         # Replace \blank escape sequences
-        text = text.replace("\blank","")
+        text = text.replace("\\blank","")
         return text
 
     def getListItemText(self, lastItem, lastText):
@@ -513,11 +518,12 @@ class WikiCompiler :
                 if lastText != "":
                     # Emit last item
                     ltxt += self.getListItemText(lastItem, lastText)
+                commonPrefix = os.path.commonprefix([lastItem, curItem])
                 # Close old list envs
-                toclose = len(lastItem)-len(curItem)
-                if toclose >= 0:
-                    if lastItem.find(curItem) != 0:
-                        toclose += 1 # Changed env
+                if len(lastItem) >= len(curItem):
+                    toclose = len(lastItem)-len(commonPrefix)
+                else:
+                    toclose = 0
                 while len(listStack) and toclose > 0:
                     ltxt += "%s\n" % self.listTags[listStack.pop()][1]
                     if len(listStack):
@@ -527,25 +533,22 @@ class WikiCompiler :
                     listIndent -= 1
                     
                 # Open new list envs
-                toopen = len(curItem)-listIndent
-                print curItem, lastItem, listIndent
+                if len(curItem) >= len(lastItem):
+                    toopen = len(curItem)-len(commonPrefix)
+                else:
+                    toopen = 0
                 if toopen > 0 and curItem != lastItem:
-                    opencnt = listIndent
-                    if len(curItem) > 1:
-                        toopen += 1 # ugly hack
-                    print "opencnt", opencnt, toopen
-                    
+                    opencnt = 0
                     while opencnt < toopen:
-                        if opencnt > 0:
+                        if listIndent > 0:
                             # Prepend <li> for list item
                             otag = 'olItem'
-                            print "prepending"
-                            if curItem[opencnt-1] == '*':
+                            if curItem[listIndent-1] == '*':
                                 otag = 'ulItem'
                             ltxt += "%s" % self.listTags[otag][0]
                             listStack.append(otag)
-                        ltxt += "%s\n" % self.listTags[curItem[opencnt]][0]
-                        listStack.append(curItem[opencnt])
+                        ltxt += "%s\n" % self.listTags[curItem[listIndent]][0]
+                        listStack.append(curItem[listIndent])
                         opencnt += 1
                         listIndent += 1
                     
