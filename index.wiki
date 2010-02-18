@@ -11,7 +11,7 @@ concentrated on creating simple pages for this website (or for Docbook XML).
 
 == Current version == version
 
-~[[xmlwiko.zip xmlwiko]]||Archive with the Python script and the $$*.wiki$$
+~[[xmlwiko.zip xmlwiko]]||Archive with the Python script (v1.3) and the $$*.wiki$$
 source for this page.
 
 == Usage ==
@@ -46,7 +46,8 @@ Code:
 \blank@author: Whowrote This
 
 The markups for the text can be divided into the categories:
-sections, simple paragraphs, lists and environments.
+((sections)), ((para simple paragraphs)), ((links)), ((lists))
+and ((environments)).
 
 == Sections == sections
 
@@ -148,7 +149,12 @@ or
 because we want to add special attributes like %%vlink%% or %%width%%.
 First, let's have a look at the basic forms:
 
-~$$[\blank[href text]\blank]$$||Creates a link to the URL %%href%% with %%text%% as the link text.
+~$$[\blank[href text]\blank]$$||Creates a link to the external URL %%href%% with %%text%% as the link text.
+~$$(\blank(id text)\blank)$$||Creates a link within the document to the %%id%% with %%text%% as the link text.
+The %%id%% can point to a section or a defined anchor (see ((para Paragraphs))).
+~$$&amp;&amp;id text&amp;&amp;$$||Creates an xref entry to the %%id%% within the document. Although Docbook
+does not require a link %%text%% for this element, you have to provide a fallback for the
+Forrest output.
 ~$$&lt;&lt;href>>$$||Places an %%img%% tag (or $$inlinemediaobject$$) for the image %%href%% at the current position.
 ~$$Figure:$$||A \\figure\\ is an image that stands on its own line, it can have a title and is specified
 like an environment.</p>
@@ -159,15 +165,17 @@ Title/description of the figure.
 <p>While the $$href$$ is mandatory, you can leave out the title. This results in a simple image without any description
 (a.k.a $$mediaobject$$ in Docbook).
 
-Now when you want to give some special attributes to these three tags, you can split the $$text$$ for the link and the
-$$href$$ for the images into two parts by a %%||%%. The first part is recognized as list of attributes then, while the
-rest is used as text or link to the actual image.
+Now when you want to give some special attributes to these five tags, you can split the $$text$$ for the link/xref and the
+$$href$$ for the images into two parts by a %%||%%. Like this, the first token is always recognized as 
+the link target (or image source). Then, the list of optional attributes follow
+and the link text is found at the end of the expression.
 
 Some examples:
 
 Code:
 [[index.html vlink="#C0C0C0"||Visit this page!]]
 &lt;&lt;test.png||alt="test" width="80%">>
+((examples xrefstyle="template: the examples in ch. %n"||the examples))
 Figure: er2.png||alt="er2" width="100%"
 The parallel computer ER2.
 
@@ -233,7 +241,7 @@ Lemma, Proof, Theorem and Corollary.
 
 Note:
 When using the $$Code$$ environment, you still have to escape the %%&lt;%%
-as %%&amp;lt;%%!
+as %%&amp;lt;%% and the %%&amp;%% as %%&amp;amp;%%!
 
 == Special stuff ==
 

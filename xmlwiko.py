@@ -16,7 +16,7 @@
 # this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
-xmlwiko v1.2: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+xmlwiko v1.3: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
               Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
               the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
 """
@@ -25,8 +25,6 @@ import glob
 import os.path
 import re
 import sys
-import subprocess
-import urllib
 import codecs
 
 def processVerbatim(txt, language):
@@ -57,6 +55,10 @@ quote = re.compile(r"''([^']*)''")
 code = re.compile(r"\$\$([^\$]*)\$\$")
 quotedcode = re.compile(r"%%([^\%]*)%%")
 url = re.compile(r"\[\[([^\s]*)\s+([^\]]*)\]\]")
+xref = re.compile(r"&&([^\s]*)\s+([^&]*)&&")
+link = re.compile(r"\(\(([^\s]*)\s+([^\)]*)\)\)")
+urls = re.compile(r"\[\[([^\s]*?)\]\]")
+links = re.compile(r"\(\(([^\s]*?)\)\)")
 anchor = re.compile(r"@@([^@]*)@@")
 img = re.compile(r"<<([^>]*)>>")
 
@@ -99,8 +101,10 @@ inlineTagsForrest = {'em' : ['<em>', '</em>'],
               'quote' : ['&quot;', '&quot;'],
               'code' : ['<code>', '</code>'],
               'quotedcode' : ['&quot;<code>', '</code>&quot;'],
-              'anchor' : ['<a id="', '"/>']}
+              'anchor' : ['<anchor id="', '"/>']}
 dictTagsForrest = {'ulink' : '<a href="%(url)s"%(atts)s>%(linktext)s</a>',
+                   'link' : '<a href="#%(url)s">%(linktext)s</a>',
+                   'xref' : '<a href="#%(url)s">%(linktext)s</a>',
                    'inlinemediaobject' : '<img src="%(fref)s"%(atts)s/>',
                    'mediaobject' : '<figure src="%(fref)s"%(atts)s/>',
                    'figure' : '<figure src="%(fref)s"%(atts)s/><p><strong>Figure</strong>: %(title)s</p>'
@@ -122,7 +126,7 @@ defaultSkeletonForrest = u"""<?xml version="1.0" encoding="utf-8"?>
 envTagsDocbook = {
            'Section' : ['<section id="%(id)s"><title>%(title)s</title>', '</section>', True],
            'Para' : ['<para>', '</para>', False],
-           'Code' : ['<screen xml:space="preserve">', '</screen>', False],
+           'Code' : ['<screen>', '</screen>', False],
            'Figure' : ['', '', False],
            'Abstract' : ['<abstract>', '</abstract>', True],
            'Remark'  : ['<remark>', '</remark>', True],
@@ -141,18 +145,20 @@ envTagsDocbook = {
 listTagsDocbook = {'#' : ['<orderedlist>', '</orderedlist>'],
             '*' : ['<itemizedlist>', '</itemizedlist>'],
             '~' : ['<variablelist>', '</variablelist>'],
-            'olItem' : ['<listitem>', '</listitem>'],
-            'ulItem' : ['<listitem>', '</listitem>'],
+            'olItem' : ['<listitem><para>', '</para></listitem>'],
+            'ulItem' : ['<listitem><para>', '</para></listitem>'],
             'dtItem' : ['<varlistentry><term>', '</term>'],
-            'ddItem' : ['<listitem>', '</listitem></varlistentry>'],
+            'ddItem' : ['<listitem><para>', '</para></listitem></varlistentry>'],
            }
 inlineTagsDocbook = {'em' : ['<emphasis>', '</emphasis>'],
               'strong' : ['<emphasis role="bold">', '</emphasis>'],
               'quote' : ['<quote>', '</quote>'],
-              'code' : ['<code>', '</code>'],
-              'quotedcode' : ['<quote><code>', '</code></quote>'],
-              'anchor' : ['<a id="', '"/>']}
-dictTagsDocbook = {'ulink' : '<ulink url="%(url)s">%(linktext)s</ulink>',
+              'code' : ['<literal>', '</literal>'],
+              'quotedcode' : ['<quote><literal>', '</literal></quote>'],
+              'anchor' : ['<anchor id="', '"/>']}
+dictTagsDocbook = {'ulink' : '<ulink url="%(url)s"%(atts)s>%(linktext)s</ulink>',
+                   'link' : '<link linkend="%(url)s"%(atts)s>%(linktext)s</link>',
+                   'xref' : '<xref linkend="%(url)s"%(atts)s/>',
                    'inlinemediaobject' : '<inlinemediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></inlinemediaobject>',
                    'mediaobject' : '<mediaobject><imageobject><imagedata fileref="%(fileref)s"%(atts)s/></imageobject></mediaobject>',
                    'figure' : '<figure><title>%(title)s</title><mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></mediaobject></figure>'
@@ -321,7 +327,7 @@ class WikiCompiler :
                     sectionTitle = headerMatch.group(2).rstrip()
                     sectionId = headerMatch.group(3)
                     if sectionId.strip() == "":
-                        sectionId = '_'.join([f.lower() for f in sectionTitle.split()])
+                        sectionId = '_'.join([f.lower().strip('"') for f in sectionTitle.split()])
         
         # Step 2: Close old envs, based on block type and current indents
         if blockType == "Section":
@@ -408,6 +414,40 @@ class WikiCompiler :
         # Step 6: Add text to result
         self.result += text
 
+    def replaceLinks(self, text, rex, tkey):
+        lMatch = rex.search(text)
+        while lMatch:
+            href = lMatch.group(1)
+            atxt = lMatch.group(2)
+            urlatts = ""
+            seppos = atxt.find("||")
+            if seppos > 0:
+                urlatts = ' '+atxt[:seppos]
+                atxt = atxt[seppos+2:]
+            text = (text[:lMatch.start()] + 
+                    self.dictTags[tkey] % {'url' : href,
+                                           'atts' : urlatts,
+                                           'linktext' : atxt} + 
+                    text[lMatch.end():])
+            lMatch = rex.search(text)
+            
+        return text
+
+    def replaceSimpleLinks(self, text, rex, tkey):
+        lMatch = rex.search(text)
+        while lMatch:
+            href = lMatch.group(1)
+            atxt = href
+            urlatts = ""
+            text = (text[:lMatch.start()] + 
+                    self.dictTags[tkey] % {'url' : href,
+                                           'atts' : urlatts,
+                                           'linktext' : atxt} + 
+                    text[lMatch.end():])
+            lMatch = rex.search(text)
+        
+        return text
+
     def replaceAll(self, text, regex, starttag, endtag):
         match = regex.search(text)
         while match:
@@ -435,23 +475,13 @@ class WikiCompiler :
                 
             iMatch = img.search(text)
         
-        # Find and replace URLs
-        uMatch = url.search(text)
-        while uMatch:
-            href = uMatch.group(1)
-            atxt = uMatch.group(2)
-            urlatts = ""
-            seppos = atxt.find("||")
-            if seppos > 0:
-                urlatts = ' '+atxt[:seppos]
-                atxt = atxt[seppos+2:]
-            text = (text[:uMatch.start()] + 
-                    self.dictTags['ulink'] % {'url' : href,
-                                              'atts' : urlatts,
-                                              'linktext' : atxt} + 
-                    text[uMatch.end():])
-            uMatch = url.search(text)
-                    
+        # Find and replace link tags
+        text = self.replaceSimpleLinks(text, urls, 'ulink')
+        text = self.replaceSimpleLinks(text, links, 'link')
+        text = self.replaceLinks(text, url, 'ulink')
+        text = self.replaceLinks(text, xref, 'xref')
+        text = self.replaceLinks(text, link, 'link')
+                        
         # Apply non-greedy inline substitutions to the joined block
         text = self.replaceAll(text, em, self.inlineTags["em"][0], self.inlineTags["em"][1])
         text = self.replaceAll(text, strong, self.inlineTags["strong"][0], self.inlineTags["strong"][1])
