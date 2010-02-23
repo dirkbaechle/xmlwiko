@@ -61,8 +61,9 @@ urls = re.compile(r"\[\[([^\s]*?)\]\]")
 links = re.compile(r"\(\(([^\s]*?)\)\)")
 anchor = re.compile(r"@@([^@]*)@@")
 img = re.compile(r"<<([^>]*)>>")
+filter = re.compile(r"\*\*([^\s]*)\s+([^\*]*)\*\*")
 
-li  = re.compile(r"^([*#~]+)(.*)")
+li  = re.compile(r"^({*)([*#~]+)(.*)")
 var = re.compile(r"^@([^:]*): (.*)")
 
 env = re.compile(r"^({*)([a-zA-Z]+):(-*|-?[0-9]+)\s*(.*)$");
@@ -109,6 +110,8 @@ dictTagsForrest = {'ulink' : '<a href="%(url)s"%(atts)s>%(linktext)s</a>',
                    'mediaobject' : '<figure src="%(fref)s"%(atts)s/>',
                    'figure' : '<figure src="%(fref)s"%(atts)s/><p><strong>Figure</strong>: %(title)s</p>'
                   }
+filterForrest = {'forrest' : '%(content)s'
+                }
 
 defaultSkeletonForrest = u"""<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V2.0//EN" "http://forrest.apache.org/dtd/document-v20.dtd">
@@ -163,6 +166,8 @@ dictTagsDocbook = {'ulink' : '<ulink url="%(url)s"%(atts)s>%(linktext)s</ulink>'
                    'mediaobject' : '<mediaobject><imageobject><imagedata fileref="%(fileref)s"%(atts)s/></imageobject></mediaobject>',
                    'figure' : '<figure><title>%(title)s</title><mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></mediaobject></figure>'
                   }
+filterDocbook = {'docbook' : '%(content)s'
+                }
 
 defaultSkeletonDocbook = u"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
@@ -240,6 +245,10 @@ class WikiCompiler :
         self.lastBlock = None
         self.sectionIndent = 0
         self.paraIndent = 0
+        # Collect list envs
+        self.listStack = [] # keeps track of the opened list envs
+        self.listIndent = 0 # idx that points to the current indent level (0-based)
+
         for line in content.splitlines():
             if line.strip() == "":
                 # Line is empty
@@ -247,6 +256,9 @@ class WikiCompiler :
                     # Current block was closed...so process it
                     self.processBlock(currentBlock)
                     currentBlock = []
+                # Add empty lines for Code environments
+                if len(self.currentEnvironment) and self.currentEnvironment == 'Code':
+                    self.result += "\n"
             else:
                 varMatch = var.match(line)
                 if varMatch:
@@ -306,18 +318,30 @@ class WikiCompiler :
                 endMatch = closeenv.match(block[-1])
                 if endMatch and endMatch.start() == 0:
                     # Yes
-                    text = "\n".join(block[1:-1])
+                    text = "\n".join(block[:-1])
                     envStopped = True
                 else:
                     text = "\n".join(block)
+                # Use the current environment as block type
+                blockType = self.currentEnvironment
             else:
                 text = "\n".join(block)
         
         if blockType == "None":
             # Is it a list block?
-            listMatch = li.match(text)
+            listMatch = li.match(block[0])
             if listMatch and listMatch.start() == 0:
                 blockType = "List"
+                blockStart = listMatch.group(1)
+                if blockStart == "{{":
+                    envStarted = True
+                    # End of env is detected in processList()
+                    self.currentEnvironment = blockType
+                    # Cut out block start {{
+                    block[0] = block[0][2:]
+                text = "\n".join(block[:])
+                self.listIndent -= 1
+                self.listStack =[]
             else:
                 # Is it a section header?
                 headerMatch = header.match(block[0])
@@ -455,8 +479,26 @@ class WikiCompiler :
             match = regex.search(text)
             
         return text
-        
+
+    def applyFilters(self, text):
+        match = filter.search(text)
+        while match:
+            fkey = match.group(1)
+            if fkey in self.filters:
+                text = (text[:match.start()]+
+                        self.filters[fkey] % {'content' : match.group(2)} +
+                        text[match.end():])
+            else:
+                text = (text[:match.start()]+
+                        text[match.end():])
+            match = filter.search(text)
+            
+        return text
+       
     def inlineReplace(self, text):
+        # Apply filters
+        text = self.applyFilters(text)
+        
         # Find and replace images
         iMatch = img.search(text)
         while iMatch:
@@ -527,8 +569,6 @@ class WikiCompiler :
         
     def processList(self, txt):
         lines = txt.split('\n')
-        listStack = []
-        listIndent = 0
         ltxt = ""
         lastItem = ""
         lastText = ""
@@ -537,8 +577,8 @@ class WikiCompiler :
         for l in lines:
             lMatch = li.match(l)
             if lMatch:
-                curItem = lMatch.group(1)
-                curText = lMatch.group(2)
+                curItem = lMatch.group(2)
+                curText = lMatch.group(3)
                 
                 if lastText != "":
                     # Emit last item
@@ -549,13 +589,13 @@ class WikiCompiler :
                     toclose = len(lastItem)-len(commonPrefix)
                 else:
                     toclose = 0
-                while len(listStack) and toclose > 0:
-                    ltxt += "%s\n" % self.listTags[listStack.pop()][1]
-                    if len(listStack):
+                while len(self.listStack) and toclose > 0:
+                    ltxt += "%s\n" % self.listTags[self.listStack.pop()][1]
+                    if len(self.listStack):
                         # Pop enclosing <li> item
-                        ltxt += "%s\n" % self.listTags[listStack.pop()][1]                        
+                        ltxt += "%s\n" % self.listTags[self.listStack.pop()][1]                        
                     toclose -= 1
-                    listIndent -= 1
+                    self.listIndent -= 1
                     
                 # Open new list envs
                 if len(curItem) >= len(lastItem):
@@ -565,17 +605,17 @@ class WikiCompiler :
                 if toopen > 0 and curItem != lastItem:
                     opencnt = 0
                     while opencnt < toopen:
-                        if listIndent > 0:
+                        if self.listIndent > 0:
                             # Prepend <li> for list item
                             otag = 'olItem'
-                            if curItem[listIndent-1] == '*':
+                            if curItem[self.listIndent-1] == '*':
                                 otag = 'ulItem'
                             ltxt += "%s" % self.listTags[otag][0]
-                            listStack.append(otag)
-                        ltxt += "%s\n" % self.listTags[curItem[listIndent]][0]
-                        listStack.append(curItem[listIndent])
+                            self.listStack.append(otag)
+                        ltxt += "%s\n" % self.listTags[curItem[self.listIndent]][0]
+                        self.listStack.append(curItem[self.listIndent])
                         opencnt += 1
-                        listIndent += 1
+                        self.listIndent += 1
                     
                 lastItem = curItem
                 lastText = curText
@@ -586,8 +626,8 @@ class WikiCompiler :
             ltxt += self.getListItemText(lastItem, lastText)
                                                         
         # Close remaining envs
-        while len(listStack):
-            ltxt += "%s\n" % self.listTags[listStack.pop()][1]
+        while len(self.listStack):
+            ltxt += "%s\n" % self.listTags[self.listStack.pop()][1]
         
         return ltxt
 
@@ -597,6 +637,7 @@ class ForrestCompiler(WikiCompiler):
         self.listTags = listTagsForrest
         self.inlineTags = inlineTagsForrest
         self.dictTags = dictTagsForrest
+        self.filters = filterForrest
 
 class DocbookCompiler(WikiCompiler):
     def __init__(self):
@@ -604,6 +645,7 @@ class DocbookCompiler(WikiCompiler):
         self.listTags = listTagsDocbook
         self.inlineTags = inlineTagsDocbook
         self.dictTags = dictTagsDocbook
+        self.filters = filterDocbook
 
 skeletonFileName = "skeleton.xml"
 if len(sys.argv) > 1:
