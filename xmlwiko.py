@@ -66,7 +66,7 @@ filter = re.compile(r"\*\*([^\s]*)\s+([^\*]*)\*\*")
 li  = re.compile(r"^({*)([*#~]+)(.*)")
 var = re.compile(r"^@([^:]*): (.*)")
 
-env = re.compile(r"^({*)([a-zA-Z]+):(-*|-?[0-9]+)\s*(.*)$");
+env = re.compile(r"^({*)([a-zA-Z]+):(-*|-?[0-9]+)\s*(.*)$")
 closeenv = re.compile(r"^}}\s*$")
 
 # Forrest output tags
@@ -95,7 +95,7 @@ listTagsForrest = {'#' : ['<ol>', '</ol>'],
             'olItem' : ['<li>', '</li>'],
             'ulItem' : ['<li>', '</li>'],
             'dtItem' : ['<dt>', '</dt>'],
-            'ddItem' : ['<dd>', '</dd>'],
+            'ddItem' : ['<dd>', '</dd>']
            }
 inlineTagsForrest = {'em' : ['<em>', '</em>'],
               'strong' : ['<strong>', '</strong>'],
@@ -151,7 +151,7 @@ listTagsDocbook = {'#' : ['<orderedlist>', '</orderedlist>'],
             'olItem' : ['<listitem><para>', '</para></listitem>'],
             'ulItem' : ['<listitem><para>', '</para></listitem>'],
             'dtItem' : ['<varlistentry><term>', '</term>'],
-            'ddItem' : ['<listitem><para>', '</para></listitem></varlistentry>'],
+            'ddItem' : ['<listitem><para>', '</para></listitem></varlistentry>']
            }
 inlineTagsDocbook = {'em' : ['<emphasis>', '</emphasis>'],
               'strong' : ['<emphasis role="bold">', '</emphasis>'],
@@ -340,7 +340,7 @@ class WikiCompiler :
                     # Cut out block start {{
                     block[0] = block[0][2:]
                 text = "\n".join(block[:])
-                self.listIndent -= 1
+                self.listIndent = 0
                 self.listStack =[]
             else:
                 # Is it a section header?
@@ -535,19 +535,27 @@ class WikiCompiler :
         text = text.replace("\\blank","")
         return text
 
-    def getListItemText(self, lastItem, lastText):
+    def getListItemText(self, lastItem, lastText, noclose=False):
         if lastItem == "":
             return lastItem
         
         if lastItem[-1] != '~':
-            if lastItem[-1] == '#':
-                return "%s%s%s\n" % (self.listTags['olItem'][0],
-                                     lastText,
-                                     self.listTags['olItem'][1])
+            if noclose:
+                if lastItem[-1] == '#':
+                    return "%s%s\n" % (self.listTags['olItem'][0],
+                                       lastText)
+                else:
+                    return "%s%s\n" % (self.listTags['ulItem'][0],
+                                       lastText)
             else:
-                return "%s%s%s\n" % (self.listTags['ulItem'][0],
-                                     lastText,
-                                     self.listTags['ulItem'][1])                
+                if lastItem[-1] == '#':
+                    return "%s%s%s\n" % (self.listTags['olItem'][0],
+                                         lastText,
+                                         self.listTags['olItem'][1])
+                else:
+                    return "%s%s%s\n" % (self.listTags['ulItem'][0],
+                                         lastText,
+                                         self.listTags['ulItem'][1])                                
         else:
             fpos = lastText.find('||')
             if fpos > 0:
@@ -582,10 +590,13 @@ class WikiCompiler :
                 
                 if lastText != "":
                     # Emit last item
-                    ltxt += self.getListItemText(lastItem, lastText)
+                    if len(lastItem) > len(curItem):
+                        ltxt += self.getListItemText(lastItem, lastText, True)
+                    else:
+                        ltxt += self.getListItemText(lastItem, lastText)
                 commonPrefix = os.path.commonprefix([lastItem, curItem])
                 # Close old list envs
-                if len(lastItem) >= len(curItem):
+                if len(lastItem) > len(curItem):
                     toclose = len(lastItem)-len(commonPrefix)
                 else:
                     toclose = 0
@@ -598,8 +609,8 @@ class WikiCompiler :
                     self.listIndent -= 1
                     
                 # Open new list envs
-                if len(curItem) >= len(lastItem):
-                    toopen = len(curItem)-len(commonPrefix)
+                if len(curItem) > len(lastItem):
+                    toopen = len(curItem)-len(commonPrefix)-1
                 else:
                     toopen = 0
                 if toopen > 0 and curItem != lastItem:
