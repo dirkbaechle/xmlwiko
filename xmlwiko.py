@@ -16,7 +16,7 @@
 # this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
-xmlwiko v1.3: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+xmlwiko v1.4: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
               Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
               the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
 """
@@ -28,6 +28,12 @@ import sys
 import codecs
 
 def processVerbatim(txt, language):
+    """
+    Try to format the given code text with the pygments package. When this
+    module can be successfully imported, use the syntax highlighting for the
+    specified language. Else, return the text/code as is.
+    """
+    
     if language.strip() == "":
         return txt
     else:    
@@ -46,9 +52,9 @@ def processVerbatim(txt, language):
             return txt
         return highlight(txt, lexer, formatter)
 
+# Regular expressions
 header = re.compile(r"^==(\+|-*|-?[0-9]+)\s*([^=]+)\s*=*\s*(.*)$")
 
-# Regular expressions
 em = re.compile(r"\\\\([^\\]*)\\\\")
 strong = re.compile(r"!!([^!]*)!!")
 quote = re.compile(r"''([^']*)''")
@@ -74,7 +80,8 @@ envTagsForrest = {
            'Section' : ['<section id="%(id)s"><title>%(title)s</title>', '</section>', True],
            'Para' : ['<p>', '</p>', False],
            'Code' : ['<source xml:space="preserve">', '</source>', False],
-           'Figure' : ['', '', False],           
+           'Image' : ['<figure src="%(fref)s"%(atts)s>', '</figure>', False],
+           'Figure' : ['<figure src="%(fref)s"%(atts)s/><p><strong>Figure</strong>: ', '</p></figure>', False], 
            'Abstract' : ['<p><strong>Abstract:</strong></p>', '', True],
            'Remark'  : ['<p><strong>Remark:</strong></p>', '', True],
            'Note'  : ['<note>', '</note>', False],
@@ -87,15 +94,15 @@ envTagsForrest = {
            'Lemma'    : ['<p><strong>Lemma:</strong></p>', '', True],
            'Proof'    : ['<p><strong>Proof:</strong></p>', '', True],
            'Theorem'  : ['<p><strong>Theorem:</strong></p>', '', True],
-           'Corollary': ['<p><strong>Corollary:</strong></p>', '', True]
-}
-listTagsForrest = {'#' : ['<ol>', '</ol>'],
-            '*' : ['<ul>', '</ul>'],
-            '~' : ['<dl>', '</dl>'],
-            'olItem' : ['<li>', '</li>'],
-            'ulItem' : ['<li>', '</li>'],
-            'dtItem' : ['<dt>', '</dt>'],
-            'ddItem' : ['<dd>', '</dd>']
+           'Corollary': ['<p><strong>Corollary:</strong></p>', '', True],
+            '#' : ['<ol>', '</ol>', False],
+            '*' : ['<ul>', '</ul>', False],
+            '~' : ['<dl>', '</dl>', False],
+            'olItem' : ['<li>', '</li>', False],
+            'ulItem' : ['<li>', '</li>', False],
+            'vlEntry' : ['', '', False],
+            'dtItem' : ['<dt>', '</dt>', False],
+            'ddItem' : ['<dd>', '</dd>', False]
            }
 inlineTagsForrest = {'em' : ['<em>', '</em>'],
               'strong' : ['<strong>', '</strong>'],
@@ -106,13 +113,12 @@ inlineTagsForrest = {'em' : ['<em>', '</em>'],
 dictTagsForrest = {'ulink' : '<a href="%(url)s"%(atts)s>%(linktext)s</a>',
                    'link' : '<a href="#%(url)s">%(linktext)s</a>',
                    'xref' : '<a href="#%(url)s">%(linktext)s</a>',
-                   'inlinemediaobject' : '<img src="%(fref)s"%(atts)s/>',
-                   'mediaobject' : '<figure src="%(fref)s"%(atts)s/>',
-                   'figure' : '<figure src="%(fref)s"%(atts)s/><p><strong>Figure</strong>: %(title)s</p>'
+                   'inlinemediaobject' : '<img src="%(fref)s"%(atts)s/>'
                   }
 filterForrest = {'forrest' : '%(content)s'
                 }
 
+# Default template for a Forrest XML file
 defaultSkeletonForrest = u"""<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V2.0//EN" "http://forrest.apache.org/dtd/document-v20.dtd">
 <document>
@@ -130,7 +136,8 @@ envTagsDocbook = {
            'Section' : ['<section id="%(id)s"><title>%(title)s</title>', '</section>', True],
            'Para' : ['<para>', '</para>', False],
            'Code' : ['<screen>', '</screen>', False],
-           'Figure' : ['', '', False],
+           'Image' : ['<mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/>', '</imageobject></mediaobject>', False],
+           'Figure' : ['<figure><mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></mediaobject><title>', '</title></figure>', False],
            'Abstract' : ['<abstract>', '</abstract>', True],
            'Remark'  : ['<remark>', '</remark>', True],
            'Note'  : ['<note>', '</note>', True],
@@ -143,15 +150,15 @@ envTagsDocbook = {
            'Lemma': ['<remark><para>Lemma:</para>', '</remark>', True],
            'Proof': ['<remark><para>Proof:</para>', '</remark>', True],
            'Theorem': ['<remark><para>Theorem:</para>', '</remark>', True],
-           'Corollary': ['<remark><para>Corollary:</para>', '</remark>', True]
-}
-listTagsDocbook = {'#' : ['<orderedlist>', '</orderedlist>'],
-            '*' : ['<itemizedlist>', '</itemizedlist>'],
-            '~' : ['<variablelist>', '</variablelist>'],
-            'olItem' : ['<listitem><para>', '</para></listitem>'],
-            'ulItem' : ['<listitem><para>', '</para></listitem>'],
-            'dtItem' : ['<varlistentry><term>', '</term>'],
-            'ddItem' : ['<listitem><para>', '</para></listitem></varlistentry>']
+           'Corollary': ['<remark><para>Corollary:</para>', '</remark>', True],
+           '#' : ['<orderedlist>', '</orderedlist>', False],
+           '*' : ['<itemizedlist>', '</itemizedlist>', False],
+           '~' : ['<variablelist>', '</variablelist>', False],
+           'olItem' : ['<listitem>', '</listitem>', True],
+           'ulItem' : ['<listitem>', '</listitem>', True],
+           'vlEntry' : ['<varlistentry>', '</varlistentry>', False],
+           'dtItem' : ['<term>', '</term>', False],
+           'ddItem' : ['<listitem>', '</listitem>', True]
            }
 inlineTagsDocbook = {'em' : ['<emphasis>', '</emphasis>'],
               'strong' : ['<emphasis role="bold">', '</emphasis>'],
@@ -162,13 +169,12 @@ inlineTagsDocbook = {'em' : ['<emphasis>', '</emphasis>'],
 dictTagsDocbook = {'ulink' : '<ulink url="%(url)s"%(atts)s>%(linktext)s</ulink>',
                    'link' : '<link linkend="%(url)s"%(atts)s>%(linktext)s</link>',
                    'xref' : '<xref linkend="%(url)s"%(atts)s/>',
-                   'inlinemediaobject' : '<inlinemediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></inlinemediaobject>',
-                   'mediaobject' : '<mediaobject><imageobject><imagedata fileref="%(fileref)s"%(atts)s/></imageobject></mediaobject>',
-                   'figure' : '<figure><title>%(title)s</title><mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></mediaobject></figure>'
+                   'inlinemediaobject' : '<inlinemediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></inlinemediaobject>'
                   }
 filterDocbook = {'docbook' : '%(content)s'
                 }
 
+# Default template for a Docbook XML file
 defaultSkeletonDocbook = u"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
 "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
@@ -185,18 +191,36 @@ defaultSkeletonDocbook = u"""<?xml version="1.0" encoding="UTF-8"?>
 
 
 def stripUtfMarker(content) :
+    """
+    Strip off an optional UTF8 marker from the start
+    of the input file/content.
+    """
+    
     import codecs
     return content.replace( unicode(codecs.BOM_UTF8,"utf8"), "")
 
 def readUtf8(filename) :
+    """
+    Read the contents of the given file filename in UTF8 encoding.
+    """
+    
     print "Reading",filename
     return stripUtfMarker(codecs.open(filename,'r','utf8').read())
 
 def loadOrDefault(filename, defaultContent) :
+    """
+    Return the contents of the file filename, or the fallback
+    text defaultContent.
+    """
+    
     try: return readUtf8(filename)
     except: return defaultContent
 
 def writeUtf8(filename, content) :
+    """
+    Save the content to a file with the given filename in UTF8 encoding.
+    """
+    
     import codecs, os
     path = filename.split("/")[:-1]
     for i in range(len(path)) :
@@ -205,19 +229,50 @@ def writeUtf8(filename, content) :
     codecs.open(filename, "w",'utf8').write(content)
 
 def tos(seq):
+    """
+    Return the top of stack (TOS) element for the sequence seq,
+    or an empty string if seq holds no items.
+    """
+    
     if len(seq) > 0:
         return seq[-1]
     else:
         return ""
 
-class WikiCompiler :
+# Start mode at indent level 0, no paragraph has been opened yet
+PM_VOID = 0
+# Parse an opened paragraph (sequence of paragraphs) at the same indent level
+PM_PARA = 1
+# Parse a single paragraph with code, stop at first blank line
+PM_CODEPARA = 2
+# Parse a sequence of code paragraphs, separated by blank lines, stop at final }}
+PM_CODE = 3
+# Parse a single environment paragraph, stop at first blank line
+PM_ENVPARA = 4
+# Parse a sequence of list items
+PM_LIST = 5
 
+list_items = ['#','*','~','olItem','ulItem','dtItem','ddItem']
+
+class WikiCompiler :
+    """ The base class for compiling Wiki files to XML output.
+    """
+    
     def closeAllOpenedBlocks(self):
+        """
+        Purge all opened blocks or XML tags.
+        """
+        
         while len(self.openBlocks):
             tos = self.openBlocks.pop()
             self.result += "%s\n" % self.envTags[tos][1]
             
     def closeOpenedBlocks(self, tag, num=1):
+        """
+        Close all opened XML tags, up to the nth occurence (num)
+        of the given tag.
+        """
+        
         cnt = 0
         while len(self.openBlocks):
             tos = self.openBlocks.pop()
@@ -226,8 +281,68 @@ class WikiCompiler :
                 cnt += 1
             if cnt == num:
                 break
-            
+
+    def openEnv(self, tag, **kwargs):
+        """
+        Open the given environment tag, with the optional keywords kwargs.
+        For this, write out the equivalent tags to the output file and
+        mark the tag as opened by pushing it onto the openBlocks stack.
+        """
+         
+        if len(kwargs):
+            self.result += "%s" % (self.envTags[tag][0] % kwargs)
+        else:
+            self.result += "%s" % self.envTags[tag][0]
+        self.openBlocks.append(tag)
+         
+        
+    def closeEnv(self, tag, **kwargs):
+        """
+        Try to close the given tag, with the optional keywords kwargs.
+        When the specified tag matches the TOS of openBlocks it is popped
+        from the stack, else a warning about the unbalanced stack is issued.
+        """
+        
+        if len(kwargs):
+            self.result += "%s\n" % (self.envTags[tag][1] % kwargs)
+        else:
+            self.result += "%s\n" % self.envTags[tag][1]
+        if tos(self.openBlocks) == tag:
+            self.openBlocks.pop()
+        else:
+            print "Warning: unbalanced tag stack! Expected '%s' but found '%s'." % (tag, tos(self.openBlocks))
+
+    def stackNewEnvironment(self, env):
+        """
+        Open a new environment (like Code, Note,...) by pushing the
+        current parseMode and the new environment onto a stack each.
+        """
+        
+        # Push current parse mode
+        self.modeStack.append(self.parseMode)
+        # Push new environment
+        self.envStack.append(env)
+
+    def closeLastEnvironment(self):
+        """
+        Close the outer environment (like Code, Note,...), if there
+        is an opened one on the stack at all.
+        """
+        
+        if len(self.envStack) > 0:
+            cenv = self.envStack.pop()
+            self.closeOpenedBlocks(cenv, 1)
+            if len(self.modeStack) > 0:
+                self.parseMode = self.modeStack.pop()
+            else:
+                self.parseMode = PM_VOID
+
     def process(self, content) :
+        """
+        Does the main work, by parsing the content as read from
+        the current input file.
+        """
+        
         self.itemLevel = ""
         self.closing=""
         self.result=""
@@ -238,42 +353,57 @@ class WikiCompiler :
         }
         # Collect simple blocks
         self.openBlocks = []
-        currentBlock = []
-        self.currentEnvironment = ""
-        self.currentText = ""
+        self.parseMode = 0
         self.codeType = ""
         self.lastBlock = None
         self.sectionIndent = 0
-        self.paraIndent = 0
         # Collect list envs
-        self.listStack = [] # keeps track of the opened list envs
-        self.listIndent = 0 # idx that points to the current indent level (0-based)
+        self.envStack = [] # keeps track of the opened envs
+        self.modeStack = [] # keeps track of the parsing modes in the opened envs
+        self.lastListItem = ""
 
         for line in content.splitlines():
             if line.strip() == "":
-                # Line is empty
-                if len(currentBlock):
-                    # Current block was closed...so process it
-                    self.processBlock(currentBlock)
-                    currentBlock = []
-                # Add empty lines for Code environments
-                if len(self.currentEnvironment) and self.currentEnvironment == 'Code':
-                    self.result += "\n"
+                self.processEmptyLine()
             else:
-                varMatch = var.match(line)
+                if ((self.parseMode != PM_CODE) and
+                    (self.parseMode != PM_CODEPARA)):
+                    varMatch = var.match(line)
+                    envMatch = env.match(line)
+                    listMatch = li.match(line)
+                    headerMatch = header.match(line)
+                else:                    
+                    varMatch = None
+                    envMatch = None
+                    listMatch = None
+                    headerMatch = None
+                # Always look for closing environments
+                closeEnvMatch = closeenv.match(line)
+
                 if varMatch:
                     # Catch vars
                     key = varMatch.group(1)
                     if key in self.vars:
                         self.vars[key] = varMatch.group(2)
+                elif closeEnvMatch:
+                    # Close last environment
+                    self.closeLastEnvironment()
+                elif envMatch and (envMatch.group(2) in self.envTags):
+                    self.processEnvironment(envMatch)
+                elif listMatch and listMatch.start() == 0:
+                    self.processList(listMatch)
+                elif headerMatch and headerMatch.start() == 0:
+                    self.processSection(headerMatch)
                 else:
+                    if self.parseMode == PM_VOID:
+                        # Stack new para environment
+                        self.openEnv('Para')
+                        # Set para as current environment
+                        self.parseMode = PM_PARA
                     # Continue to collect lines
-                    currentBlock.append(line)
+                    self.processText(line, self.parseMode)
+                        
                 
-        # Process the final block
-        if len(currentBlock):
-            self.processBlock(currentBlock)
-
         # Close all blocks that are still opened
         self.closeAllOpenedBlocks()
 
@@ -281,164 +411,140 @@ class WikiCompiler :
         
         return self.vars
 
-    def processBlock(self, block):
-        # Step 1: Identify block
-        blockType = "None"
-        addIndent = ""
-        blockSpec = ""
-        sectionTitle = ""
-        sectionId = ""
-        envMatch = env.match(block[0])
-        envStarted = False
-        envStopped = False
-        if envMatch and envMatch.start() == 0:
-            blockStart = envMatch.group(1)
-            blockType = envMatch.group(2)
-            addIndent = envMatch.group(3)
-            blockSpec = envMatch.group(4)
-            self.currentEnvironment = blockType
-            if blockStart == "{{":
-                envStarted = True
-                # Does the env also end in this block?
-                endMatch = closeenv.match(block[-1])
-                if endMatch and endMatch.start() == 0:
-                    # Yes
-                    text = "\n".join(block[1:-1])
-                    envStopped = True
-                else:
-                    text = "\n".join(block[1:])
-            else:
-                # Single block env
-                envStarted = True
-                envStopped = True
-                text = "\n".join(block[1:])
+    def processEmptyLine(self):
+        """
+        Decide what to do about the empty line that was encountered.
+        Based on the internal state of the parsing machine/automaton,
+        output is created or a change of state happens.
+        """
+
+        # Line is emtpy: Normal mode or code env?
+        if self.parseMode == PM_CODE:
+            self.result += "\n"
+        elif self.parseMode == PM_CODEPARA or self.parseMode == PM_ENVPARA:
+            # Current Code environment gets closed
+            self.closeLastEnvironment()
+        elif self.parseMode == PM_PARA:
+            # Current Para block gets closed
+            self.closeEnv('Para')
+            self.parseMode = PM_VOID
+        elif self.parseMode == PM_LIST:
+            # closing list items
+            if self.lastListItem != "":
+                oil = self.lastListItem
+                odl = list(oil)
+                odl.reverse()
+                for o in odl:
+                    self.closeLists(o)
+
+            self.lastListItem = ""
+            self.parseMode = PM_VOID
+
+
+    def processText(self, text, mode=PM_VOID):
+        """
+        Process a normal line of text by replacing inline expressions
+        and the blank marker.
+        Note: For code environments, all inlines are kept as they are!
+        """
+
+        if mode != PM_CODE and mode != PM_CODEPARA:
+            # Replace inline expressions
+            text = self.inlineReplace(text)
         else:
-            if len(self.currentEnvironment):
-                # Does the env end in this block?
-                endMatch = closeenv.match(block[-1])
-                if endMatch and endMatch.start() == 0:
-                    # Yes
-                    text = "\n".join(block[:-1])
-                    envStopped = True
-                else:
-                    text = "\n".join(block)
-                # Use the current environment as block type
-                blockType = self.currentEnvironment
-            else:
-                text = "\n".join(block)
+            text = self.replaceBlanks(text)
+            text = processVerbatim(text, self.codeType)
+ 
+        # Add text to result
+        self.result += "%s\n" % text
+
+    def processSection(self, headerMatch):
+        """
+        Open and close sections, while keeping track of the indent level.
+        """
         
-        if blockType == "None":
-            # Is it a list block?
-            listMatch = li.match(block[0])
-            if listMatch and listMatch.start() == 0:
-                blockType = "List"
-                blockStart = listMatch.group(1)
-                if blockStart == "{{":
-                    envStarted = True
-                    # End of env is detected in processList()
-                    self.currentEnvironment = blockType
-                    # Cut out block start {{
-                    block[0] = block[0][2:]
-                text = "\n".join(block[:])
-                self.listIndent = 0
-                self.listStack =[]
-            else:
-                # Is it a section header?
-                headerMatch = header.match(block[0])
-                if headerMatch and headerMatch.start() == 0:
-                    blockType = "Section"
-                    addIndent = headerMatch.group(1)
-                    sectionTitle = headerMatch.group(2).rstrip()
-                    sectionId = headerMatch.group(3)
-                    if sectionId.strip() == "":
-                        sectionId = '_'.join([f.lower().strip('"') for f in sectionTitle.split()])
+        addIndent = headerMatch.group(1)
+        sectionTitle = headerMatch.group(2).rstrip()
+        sectionId = headerMatch.group(3)
+        if sectionId.strip() == "":
+            sectionId = '_'.join([f.lower().strip('"') for f in sectionTitle.split()])
+
+        # Step 1: Close old envs, based on block type and current indents
+
+        # Normal indentation?
+        if addIndent == "":
+            # Yes
+            self.closeOpenedBlocks('Section')
+            self.sectionIndent -= 1
+        else:
+            # No
+            if addIndent[0] == "-":
+                # Extract depth
+                mcnt = 1
+                if len(addIndent) > 1:
+                    mcnt = addIndent.count('-')
+                    if mcnt == 1:
+                        # Based on number
+                        mcnt = int(addIndent[1:])
+                self.closeOpenedBlocks('Section', mcnt+1)
+                self.sectionIndent -= mcnt+1
+            elif addIndent[0] != "+":
+                # Jump to given section depth
+                mcnt = self.sectionIndent - int(addIndent)
+                self.closeOpenedBlocks('Section', mcnt)
+                self.sectionIndent -= mcnt
+
+        # Step 2: Open new section
+        self.openBlocks.append('Section')
+        self.sectionIndent += 1
+        text = "%s\n" % (self.envTags['Section'][0] % {'title':sectionTitle, 'id':sectionId})
+        self.result += self.inlineReplace(text)
+
+    def processEnvironment(self, envMatch):
+        """
+        Start a new environment like Code, Note or Figure.
+        """
         
-        # Step 2: Close old envs, based on block type and current indents
-        if blockType == "Section":
-            # Normal indentation?
-            if addIndent == "":
-                # Yes
-                self.closeOpenedBlocks(blockType)
-                self.sectionIndent -= 1
-            else:
-                # No
-                if addIndent[0] == "-":
-                    # Extract depth
-                    mcnt = 1
-                    if len(addIndent) > 1:
-                        mcnt = addIndent.count('-')
-                        if mcnt == 1:
-                            # Based on number
-                            mcnt = int(addIndent[1:])
-                    self.closeOpenedBlocks(blockType, mcnt+1)
-                    self.sectionIndent -= mcnt+1
-                elif addIndent[0] != "+":
-                    # Jump to given section depth
-                    mcnt = self.sectionIndent - int(addIndent)
-                    self.closeOpenedBlocks(blockType, mcnt)
-                    self.sectionIndent -= mcnt
-                                        
-        # Step 3: Open new section
-        if blockType == "Section":
-            self.openBlocks.append('Section')
-            self.sectionIndent += 1
-            text = "%s\n" % (self.envTags['Section'][0] % {'title':sectionTitle, 'id':sectionId})
-            self.result += self.inlineReplace(text)
-            return
-        
-        # Step 4: Process block=
-        # Step 4a: Convert list items, if required
-        if blockType == "List":
-            text = self.processList(text)
-        elif blockType == "Figure":
-            fighref = blockSpec
+        blockStart = envMatch.group(1)
+        blockType = envMatch.group(2)
+        addIndent = envMatch.group(3)
+        self.codeType = envMatch.group(4)
+
+        curParseMode = PM_ENVPARA
+        self.stackNewEnvironment(blockType)
+        if blockStart == "{{":
+            curParseMode = PM_PARA
+        if blockType == "Figure" or blockType == "Image":
+            fighref = self.codeType
             seppos = fighref.find("||")
             if seppos > 0:
                 figatts = ' '+fighref[seppos+2:]
                 fighref = fighref[:seppos]
             else:
                 figatts = ' alt="'+fighref+'"'
-             
-            if text.strip() != "":
-                # Figure with title
-                text = self.dictTags['figure'] % {'fref' : fighref,
-                                                  'atts' : figatts,
-                                                  'title' : text}
-            else:
-                # No title
-                text = self.dictTags['mediaobject'] % {'fref' : fighref,
-                                                       'atts' : figatts}
-        elif blockType != "Code":
-            if blockType != "None":
-                if self.envTags[blockType][2]:
-                    # Wrap text in para
-                    text = "%s%s%s\n" % (self.envTags['Para'][0], text, self.envTags['Para'][1])
-            else:
+            self.openEnv(blockType, fref=fighref, atts=figatts)
+            if self.envTags[blockType][2]:
                 # Wrap text in para
-                text = "%s%s%s\n" % (self.envTags['Para'][0], text, self.envTags['Para'][1])                
+                self.openEnv('Para')
+        elif blockType != "Code":
+            self.openEnv(blockType)
+            if self.envTags[blockType][2]:
+                # Wrap text in para
+                self.openEnv('Para')
         else:
-            text = processVerbatim(text, blockSpec)        
-            
-        # Step 4b: Replace inline expressions
-        if blockType != "Code":
-            text = self.inlineReplace(text)
-        else:
-            # Replace \blank escape sequences
-            text = text.replace("\\blank","")
-            
-        # Step 5: Wrap block in environment tags
-        if envStarted:
-            text = "%s\n%s" % (self.envTags[self.currentEnvironment][0],text)
-            self.openBlocks.append(blockType)
-        if envStopped:
-            text = "%s\n%s\n" % (text, self.envTags[self.currentEnvironment][1])
-            self.currentEnvironment = ""
-            self.openBlocks.pop()
-            
-        # Step 6: Add text to result
-        self.result += text
+            self.openEnv(blockType)
+            if blockStart == "{{":
+                curParseMode = PM_CODE
+            else:
+                curParseMode = PM_CODEPARA
+        self.parseMode = curParseMode
 
     def replaceLinks(self, text, rex, tkey):
+        """
+        Replace the URL link definitions, as defined by the regular
+        expression rex, in the given text.
+        """
+        
         lMatch = rex.search(text)
         while lMatch:
             href = lMatch.group(1)
@@ -458,6 +564,11 @@ class WikiCompiler :
         return text
 
     def replaceSimpleLinks(self, text, rex, tkey):
+        """
+        Replace document-internal links, as defined by the regexp
+        rex, in the given text.
+        """
+        
         lMatch = rex.search(text)
         while lMatch:
             href = lMatch.group(1)
@@ -473,6 +584,10 @@ class WikiCompiler :
         return text
 
     def replaceAll(self, text, regex, starttag, endtag):
+        """
+        Replace all occurrences of regex in text, by wrapping them
+        in a starttag/endtag pair of XML tags.
+        """
         match = regex.search(text)
         while match:
             text = text[:match.start()]+starttag+match.group(1)+endtag+text[match.end():]
@@ -481,6 +596,12 @@ class WikiCompiler :
         return text
 
     def applyFilters(self, text):
+        """
+        Apply this WikiCompilers filter to the given text.
+        Depending on the found filter directive (docbook|forrest), the according text
+        is filtered out...or not.
+        """
+        
         match = filter.search(text)
         while match:
             fkey = match.group(1)
@@ -494,8 +615,21 @@ class WikiCompiler :
             match = filter.search(text)
             
         return text
+
+    def replaceBlanks(self, text):
+        """
+        Replace the \blank escape sequences in the given text.
+        """
+        
+        text = text.replace("\\blank","")
+        return text
        
     def inlineReplace(self, text):
+        """
+        Apply all inline replacements (like links, images, filters,...)
+        to the given text.
+        """
+        
         # Apply filters
         text = self.applyFilters(text)
         
@@ -532,147 +666,193 @@ class WikiCompiler :
         text = self.replaceAll(text, quotedcode, self.inlineTags["quotedcode"][0], self.inlineTags["quotedcode"][1])
         text = self.replaceAll(text, anchor, self.inlineTags["anchor"][0], self.inlineTags["anchor"][1])
         # Replace \blank escape sequences
-        text = text.replace("\\blank","")
+        text = self.replaceBlanks(text)
         return text
 
-    def getListItemText(self, lastItem, lastText, noclose=False):
-        if lastItem == "":
-            return lastItem
+    def openListItem(self, li):
+        """
+        Open a new listitem by stacking it as an environment.
+        """
         
-        if lastItem[-1] != '~':
-            if noclose:
-                if lastItem[-1] == '#':
-                    return "%s%s\n" % (self.listTags['olItem'][0],
-                                       lastText)
-                else:
-                    return "%s%s\n" % (self.listTags['ulItem'][0],
-                                       lastText)
-            else:
-                if lastItem[-1] == '#':
-                    return "%s%s%s\n" % (self.listTags['olItem'][0],
-                                         lastText,
-                                         self.listTags['olItem'][1])
-                else:
-                    return "%s%s%s\n" % (self.listTags['ulItem'][0],
-                                         lastText,
-                                         self.listTags['ulItem'][1])                                
+        if li == '*':
+            li = 'ulItem'
+        elif li == '#':
+            li = 'olItem'
+        self.openEnv(li)
+        if self.envTags[li][2]:
+            # Wrap item in para
+            self.openEnv('Para')
+
+    def openTextListItem(self, o, curText):
+        """
+        Open a new single list item o. The variable
+        curText contains the rest of the text line
+        after the item specification.
+        It is skipped back for unordered or ordered lists
+        (and then gets output in the calling routine),
+        but gets processed for variable lists.
+        """
+        
+        if o != '~':
+            self.openListItem(o)
+            return curText
         else:
-            fpos = lastText.find('||')
+            fpos = curText.find('||')
             if fpos > 0:
-                return "%s%s%s%s%s%s%s%s\n" % (self.listTags['dtItem'][0],
-                                               lastText[:fpos],
-                                               self.listTags['dtItem'][1],
-                                               self.listTags['ddItem'][0],
-                                               self.envTags['Para'][0],
-                                               lastText[fpos+2:],
-                                               self.envTags['Para'][1],
-                                               self.listTags['ddItem'][1])
+                self.openListItem('vlEntry')
+                self.openListItem('dtItem')
+                self.processText(curText[:fpos])
+                self.closeListItem('dtItem')
+                self.openListItem('ddItem')
+                self.processText(curText[fpos+2:])
             else:
-                return "%s%s%s%s%s\n" % (self.listTags['dtItem'][0],
-                                         lastText,
-                                         self.listTags['dtItem'][1],
-                                         self.listTags['ddItem'][0],
-                                         self.listTags['ddItem'][1])
-        return ""
+                self.openListItem('vlEntry')
+                self.openListItem('dtItem')
+                self.processText(curText)
+                self.closeListItem('dtItem')
+                self.openListItem('ddItem')
+            return ""
+
+    def openList(self, li):
+        """
+        Opens a new list environment by pushing
+        env onto the stack of opened blocks.
+        """
+        self.openEnv(li)
+        if self.envTags[li][2]:
+            # Wrap item in para
+            self.openEnv('Para')
+
+    def closeListItem(self, li):
+        """
+        Close the given single list item li.
+        """
+        if li == '*':
+            li = 'ulItem'
+        elif li == '#':
+            li = 'olItem'
+        elif li == '~':
+            li = 'vlEntry'
+        self.closeOpenedBlocks(li, 1)
         
-    def processList(self, txt):
-        lines = txt.split('\n')
-        ltxt = ""
-        lastItem = ""
-        lastText = ""
-        curItem = ""
-        curText = ""
-        for l in lines:
-            lMatch = li.match(l)
-            if lMatch:
-                curItem = lMatch.group(2)
-                curText = lMatch.group(3)
-                
-                if lastText != "":
-                    # Emit last item
-                    if len(lastItem) > len(curItem):
-                        ltxt += self.getListItemText(lastItem, lastText, True)
-                    else:
-                        ltxt += self.getListItemText(lastItem, lastText)
-                commonPrefix = os.path.commonprefix([lastItem, curItem])
-                # Close old list envs
-                if len(lastItem) > len(curItem):
-                    toclose = len(lastItem)-len(commonPrefix)
-                else:
-                    toclose = 0
-                while len(self.listStack) and toclose > 0:
-                    ltxt += "%s\n" % self.listTags[self.listStack.pop()][1]
-                    if len(self.listStack):
-                        # Pop enclosing <li> item
-                        ltxt += "%s\n" % self.listTags[self.listStack.pop()][1]                        
-                    toclose -= 1
-                    self.listIndent -= 1
-                    
-                # Open new list envs
-                if len(curItem) > len(lastItem):
-                    toopen = len(curItem)-len(commonPrefix)-1
-                else:
-                    toopen = 0
-                if toopen > 0 and curItem != lastItem:
-                    opencnt = 0
-                    while opencnt < toopen:
-                        if self.listIndent > 0:
-                            # Prepend <li> for list item
-                            otag = 'olItem'
-                            if curItem[self.listIndent-1] == '*':
-                                otag = 'ulItem'
-                            ltxt += "%s" % self.listTags[otag][0]
-                            self.listStack.append(otag)
-                        ltxt += "%s\n" % self.listTags[curItem[self.listIndent]][0]
-                        self.listStack.append(curItem[self.listIndent])
-                        opencnt += 1
-                        self.listIndent += 1
-                    
-                lastItem = curItem
-                lastText = curText
+    def closeLists(self, li):
+        """
+        Pops environments from the stack of opened blocks,
+        until the given list items li have been matched in
+        reverse order.
+        """
+        oil = list(li)
+        oil.reverse()
+        if oil:
+            for o in oil:
+                self.closeOpenedBlocks(o, 1)
+
+    def processList(self, lMatch):
+        """
+        Open a new list as an environment, or continue the current
+        one by appending a new listitem.
+        """
+        
+        blockStart = lMatch.group(1)
+        curItem = lMatch.group(2)
+        curText = lMatch.group(3)
+        
+        if self.parseMode != PM_LIST:
+            # Open new list environment
+            self.parseMode = PM_LIST
+            
+            # Open new lists
+            for o in curItem:
+                self.openList(o)
+                curText = self.openTextListItem(o, curText)
+        else:
+            # Continue current list environment
+            # Compare list indent
+            commonPrefix = os.path.commonprefix([self.lastListItem, curItem])
+            commonLength = len(commonPrefix)
+            if self.lastListItem == curItem:
+                # Close last item...
+                self.closeListItem(curItem[-1])
+                # and open a new one
+                curText = self.openTextListItem(curItem[-1], curText)
             else:
-                lastText += "\n%s" % l
-        # Emit last
-        if lastText != "":
-            ltxt += self.getListItemText(lastItem, lastText)
-                                                        
-        # Close remaining envs
-        while len(self.listStack):
-            ltxt += "%s\n" % self.listTags[self.listStack.pop()][1]
-        
-        return ltxt
+                if (commonLength > 0) and (commonLength < len(self.lastListItem)):
+                    # Close lists
+                    oil = self.lastListItem[commonLength:]
+                    if oil and (oil != ""):
+                        odl = list(oil)
+                        odl.reverse()
+                        for o in odl:
+                            self.closeLists(o)
+                    # Close listitem
+                    self.closeListItem(commonPrefix[-1])
+                    # Open new listitem
+                    self.openListItem(commonPrefix[-1])
+                if len(curItem) > len(commonPrefix):
+                    # Open new lists
+                    oil = curItem[commonLength:]
+                    for o in oil:
+                        self.openList(o)
+                        curText = self.openTextListItem(o, curText)
+
+        if blockStart == "{{":
+            c = curItem[-1]
+            if c == '~':
+                c = 'vlEntry'
+            elif c == '*':
+                c = 'ulItem'
+            else:
+                c = 'olItem'
+            self.stackNewEnvironment(c)
+            self.openEnv('Para')
+            self.parseMode = PM_PARA
+                        
+        if curText != "":
+            self.processText(curText)
+        self.lastListItem = curItem
 
 class ForrestCompiler(WikiCompiler):
+    """
+    The WikiCompiler for ApacheForrest XML output.
+    """
+    
     def __init__(self):
         self.envTags = envTagsForrest
-        self.listTags = listTagsForrest
         self.inlineTags = inlineTagsForrest
         self.dictTags = dictTagsForrest
         self.filters = filterForrest
 
 class DocbookCompiler(WikiCompiler):
+    """
+    The WikiCompiler for Docbook XML output.
+    """
+
     def __init__(self):
         self.envTags = envTagsDocbook
-        self.listTags = listTagsDocbook
         self.inlineTags = inlineTagsDocbook
         self.dictTags = dictTagsDocbook
         self.filters = filterDocbook
 
-skeletonFileName = "skeleton.xml"
-if len(sys.argv) > 1:
-    skeleton = loadOrDefault(skeletonFileName, defaultSkeletonDocbook)
-    hComp = DocbookCompiler()
-else:
-    skeleton = loadOrDefault(skeletonFileName, defaultSkeletonForrest)
-    hComp = ForrestCompiler()
+def main():   
+    skeletonFileName = "skeleton.xml"
+    if len(sys.argv) > 1:
+        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonDocbook)
+        hComp = DocbookCompiler()
+    else:
+        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonForrest)
+        hComp = ForrestCompiler()
+    
+    # Generate XML files from content files + skeleton
+    for path,dirs,files in os.walk('.'):
+        for f in files:
+            if f.endswith(".wiki"):
+                contentFile = os.path.join(path, f)
+                target = "".join(os.path.splitext(f)[0:-1])+".xml"
+                target = os.path.join(path, target)
+                content = readUtf8(contentFile)
+                htmlResult = hComp.process(content)
+                writeUtf8(target, skeleton%htmlResult)
 
-# Generate XML files from content files + skeleton
-for path,dirs,files in os.walk('.'):
-    for f in files:
-        if f.endswith(".wiki"):
-            contentFile = os.path.join(path, f)
-            target = "".join(os.path.splitext(f)[0:-1])+".xml"
-            target = os.path.join(path, target)
-            content = readUtf8(contentFile)
-            htmlResult = hComp.process(content)
-            writeUtf8(target, skeleton%htmlResult)
+if __name__ == "__main__":
+    main()
+    

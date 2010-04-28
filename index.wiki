@@ -3,15 +3,15 @@
 
 Fundamentally lazy, I always try to minimize my efforts to get work done...even when
 editing homepages. So when I planned to rewrite this site, I did not want
-to fiddle with ApacheForrest XML the whole day. Instead, inspired by [[http://wiko.sf.net
-WiKo (the Wiki Compiler)]] I hacked together this little script.
+to fiddle with ApacheForrest XML the whole day. Instead, inspired by 
+[[http://wiko.sf.net WiKo (the Wiki Compiler)]] I hacked together this little script.
 
 It is not pretty, nor complete...but it does a good job in keeping me
 concentrated on creating simple pages for this website (or for Docbook XML).
 
 == Current version == version
 
-~[[xmlwiko.zip xmlwiko]]||Archive with the Python script (v1.3) and the $$*.wiki$$
+~[[xmlwiko.zip xmlwiko]]||Archive with the Python script (v1.4) and the $$*.wiki$$
 source for this page.
 
 == Usage ==
@@ -102,7 +102,7 @@ for starting a new section at the top level $$0$$ (all opened sections are close
 
 == Simple paragraphs == para
 
-The following markups are local to a text block (=paragraph). They have to appear matched,
+The following markups are local to a single text line. They have to appear matched,
 because they don't get closed automatically
 at the end of the block:
 
@@ -156,16 +156,16 @@ The %%id%% can point to a section or a defined anchor (see ((para Paragraphs))).
 does not require a link %%text%% for this element, you have to provide a fallback for the
 Forrest output.
 ~$$&lt;&lt;href>>$$||Places an %%img%% tag (or $$inlinemediaobject$$) for the image %%href%% at the current position.
-~$$Figure:$$||A \\figure\\ is an image that stands on its own line, it can have a title and is specified
-like an environment.</p>
-<source xml:space="preserve">
+~$$Image: href$$||A graphic %%href%% that stands on its own line. It has no title and is specified
+like an environment.
+~$$Figure: href$$||A \\figure\\ is an image %%href%% that stands on its own line. In contrast to
+the \\Image\\ environment above it has a title.
+
+Code:
 Figure: href
 Title/description of the figure.
-</source>
-<p>While the $$href$$ is mandatory, you can leave out the title. This results in a simple image without any description
-(a.k.a $$mediaobject$$ in Docbook).
 
-Now when you want to give some special attributes to these five tags, you can split the $$text$$ for the link/xref and the
+Now when you want to give some special attributes to these six tags, you can split the $$text$$ for the link/xref and the
 $$href$$ for the images into two parts by a %%||%%. Like this, the first token is always recognized as 
 the link target (or image source). Then, the list of optional attributes follow
 and the link text is found at the end of the expression.
@@ -179,13 +179,26 @@ Code:
 Figure: er2.png||alt="er2" width="100%"
 The parallel computer ER2.
 
+== Filters == filters
+
+Sometimes you may want to pass text or input in general, to one
+output type only. A typical example would be a parameter like %%scale%% for
+a Docbook %%imagedata%%, which does have no effect in Forrest and leads to an error.
+
+Here, you can use a filter (enclosed in %%*\blank*%%) as follows:
+
+Code:
+&lt;&lt;test.png||alt="test" **docbook scale="80"**>>
+
+The parameter %%scale%% only gets included in the ouput if %%docbook%% is selected.
+
+Currently available filters are: %%forrest%% and %%docbook%%.
 
 == Lists ==
 
 Within a list block you can indent/dedent the item level and also
 change between ordered ($$#$$), unordered ($$*$$) and description lists ($$~$$).
 The opening and closing of the single environments is handled by xmlwiko.
-Just like for normal environments, only one paragraph per list item is allowed.
 
 Note:
 The description lists ($$~$$) can not be nested further, so the single %%~%%
@@ -232,7 +245,6 @@ Abstract:
 Here we write text for our
 abstract...
 
-At the moment, environments support only one paragraph!
 Available environments are: 
 
 Code, Figure, Abstract, Remark, Note, Important,
@@ -242,6 +254,50 @@ Lemma, Proof, Theorem and Corollary.
 Note:
 When using the $$Code$$ environment, you still have to escape the %%&lt;%%
 as %%&amp;lt;%% and the %%&amp;%% as %%&amp;amp;%%!
+
+== Environments extended == extenvs
+
+When defining environments or lists, you would normally be restricted to a
+single paragraph. Xmlwiko works line-oriented for its parsing and a blank line
+usually ends an environment/listitem.
+
+If you'd rather like the script to understand the empty line as ''start a new paragraph''
+, you can enclose the environment in a braces block, like this:
+
+{{Code: 
+{\blank{TODO:
+This is the first paragraph.
+
+And here is another...
+}\blank}
+}}
+
+This gives:
+
+{{TODO:
+This is the first paragraph.
+
+And here is another...
+}}
+
+The same is possible for single list items, e.g.:
+
+{{Code:
+*First item
+{\blank{**Second indented item.
+
+The second paragraph in this item.
+}\blank}
+}}
+
+which yields:
+
+*First item
+{{**Second indented item.
+
+The second paragraph in this item.
+}}
+
 
 == Special stuff ==
 
