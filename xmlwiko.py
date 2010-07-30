@@ -1,5 +1,5 @@
 # coding: latin-1
-# Copyright (c) 2009 Dirk Baechle.
+# Copyright (c) 2009, 2010 Dirk Baechle.
 # www: http://www.mydarc.de/dl9obn/programming/python/xmlwiko
 # mail: dl9obn AT darc.de
 #
@@ -16,11 +16,11 @@
 # this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
-xmlwiko v1.4: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+xmlwiko v1.5: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
               Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
               the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
 """
- 
+
 import glob
 import os.path
 import re
@@ -95,6 +95,7 @@ envTagsForrest = {
            'Proof'    : ['<p><strong>Proof:</strong></p>', '', True],
            'Theorem'  : ['<p><strong>Theorem:</strong></p>', '', True],
            'Corollary': ['<p><strong>Corollary:</strong></p>', '', True],
+           'Raw': ['', '', False],
             '#' : ['<ol>', '</ol>', False],
             '*' : ['<ul>', '</ul>', False],
             '~' : ['<dl>', '</dl>', False],
@@ -151,6 +152,7 @@ envTagsDocbook = {
            'Proof': ['<remark><para>Proof:</para>', '</remark>', True],
            'Theorem': ['<remark><para>Theorem:</para>', '</remark>', True],
            'Corollary': ['<remark><para>Corollary:</para>', '</remark>', True],
+           'Raw': ['', '', False],
            '#' : ['<orderedlist>', '</orderedlist>', False],
            '*' : ['<itemizedlist>', '</itemizedlist>', False],
            '~' : ['<variablelist>', '</variablelist>', False],
@@ -189,6 +191,58 @@ defaultSkeletonDocbook = u"""<?xml version="1.0" encoding="UTF-8"?>
 </article>
 """
 
+# Moin output tags
+envTagsMoin = {
+           'Section' : ['= %(title)s =', '', False],
+           'Para' : ['', '', False],
+           'Code' : ['{{{\n', '}}}\n', False],
+           'Image' : ['{{attachment:%(fref)s}}', '\n', False],
+           'Figure' : ['{{attachment:%(fref)s}}\n', '\n', False],
+           'Abstract' : ['Abstract: ', '', False],
+           'Remark'  : ['Remark: ', '', False],
+           'Note'  : ['Note: ', '', False],
+           'Important'  : ['Important: ', '', False],
+           'Warning'  : ['Warning: ', '', False],
+           'Caution'  : ['Caution: ', '', False],
+           'Keywords': ['Keywords: ', '', False],
+           'TODO': ['TODO: ', '', False],
+           'Definition': ['Definition: ', '', False],
+           'Lemma': ['Lemma: ', '', False],
+           'Proof': ['Proof: ', '', False],
+           'Theorem': ['Theorem: ', '', False],
+           'Corollary': ['Corollary: ', '', False],
+           'Raw': ['', '', False],
+           '#' : ['', '', False],
+           '*' : ['', '', False],
+           '~' : ['', '', False],
+           'olItem' : ['* ', '', False],
+           'ulItem' : ['* ', '', False],
+           'vlEntry' : ['', '', False],
+           'dtItem' : ['', ':: ', False],
+           'ddItem' : ['', '', False]
+           }
+inlineTagsMoin = {'em' : ["''", "''"],
+              'strong' : ["'''", "'''"],
+              'quote' : ["'''''", "'''''"],
+              'code' : ['`', '`'],
+              'quotedcode' : ['"`', '`"'],
+              'anchor' : ['<<Anchor(', ')>>']}
+dictTagsMoin = {'ulink' : '[[%(url)s|%(linktext)s]]',
+                'link' : '[[%(url)s|%(linktext)s]]',
+                'xref' : '[[#%(url)s]]',
+                'inlinemediaobject' : '{{attachment:%(fref)s}}'
+               }
+filterMoin = {'moin' : '%(content)s'
+             }
+
+# Default template for a MoinMoin Wiki file
+defaultSkeletonMoin = u"""%(title)s
+
+by %(author)s
+
+%(content)s
+"""
+
 
 def stripUtfMarker(content) :
     """
@@ -199,21 +253,22 @@ def stripUtfMarker(content) :
     import codecs
     return content.replace( unicode(codecs.BOM_UTF8,"utf8"), "")
 
-def readUtf8(filename) :
+def readUtf8(filename, quiet=False) :
     """
     Read the contents of the given file filename in UTF8 encoding.
     """
     
-    print "Reading",filename
+    if not quiet:
+        print "Reading",filename
     return stripUtfMarker(codecs.open(filename,'r','utf8').read())
 
-def loadOrDefault(filename, defaultContent) :
+def loadOrDefault(filename, defaultContent, quiet=False) :
     """
     Return the contents of the file filename, or the fallback
     text defaultContent.
     """
     
-    try: return readUtf8(filename)
+    try: return readUtf8(filename, quiet)
     except: return defaultContent
 
 def writeUtf8(filename, content) :
@@ -518,7 +573,7 @@ class WikiCompiler :
             fighref = self.codeType
             seppos = fighref.find("||")
             if seppos > 0:
-                figatts = ' '+fighref[seppos+2:]
+                figatts = ' '+self.applyFilters(fighref[seppos+2:])
                 fighref = fighref[:seppos]
             else:
                 figatts = ' alt="'+fighref+'"'
@@ -554,12 +609,11 @@ class WikiCompiler :
             if seppos > 0:
                 urlatts = ' '+atxt[:seppos]
                 atxt = atxt[seppos+2:]
-            text = (text[:lMatch.start()] + 
-                    self.dictTags[tkey] % {'url' : href,
+            middle = self.dictTags[tkey] % {'url' : href,
                                            'atts' : urlatts,
-                                           'linktext' : atxt} + 
-                    text[lMatch.end():])
-            lMatch = rex.search(text)
+                                           'linktext' : atxt}
+            text = (text[:lMatch.start()] + middle + text[lMatch.end():])
+            lMatch = rex.search(text, lMatch.start()+len(middle))
             
         return text
 
@@ -574,12 +628,11 @@ class WikiCompiler :
             href = lMatch.group(1)
             atxt = href
             urlatts = ""
-            text = (text[:lMatch.start()] + 
-                    self.dictTags[tkey] % {'url' : href,
+            middle = self.dictTags[tkey] % {'url' : href,
                                            'atts' : urlatts,
-                                           'linktext' : atxt} + 
-                    text[lMatch.end():])
-            lMatch = rex.search(text)
+                                           'linktext' : atxt}
+            text = (text[:lMatch.start()] + middle + text[lMatch.end():])
+            lMatch = rex.search(text, lMatch.start()+len(middle))
         
         return text
 
@@ -590,8 +643,9 @@ class WikiCompiler :
         """
         match = regex.search(text)
         while match:
-            text = text[:match.start()]+starttag+match.group(1)+endtag+text[match.end():]
-            match = regex.search(text)
+            middle = starttag+match.group(1)+endtag
+            text = text[:match.start()]+middle+text[match.end():]
+            match = regex.search(text, match.start()+len(middle))
             
         return text
 
@@ -833,26 +887,84 @@ class DocbookCompiler(WikiCompiler):
         self.dictTags = dictTagsDocbook
         self.filters = filterDocbook
 
+class MoinCompiler(WikiCompiler):
+    """
+    The WikiCompiler for MoinMoin Wiki output.
+    """
+
+    def __init__(self):
+        self.envTags = envTagsMoin
+        self.inlineTags = inlineTagsMoin
+        self.dictTags = dictTagsMoin
+        self.filters = filterMoin
+
+
+compiler_skeletons = {'db' : defaultSkeletonDocbook,
+                      'moin' : defaultSkeletonMoin,
+                      'forrest' : defaultSkeletonForrest}
+
+
 def main():   
     skeletonFileName = "skeleton.xml"
-    if len(sys.argv) > 1:
-        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonDocbook)
+    
+    source = ''
+    target = ''
+    compiler = 'forrest'
+    quiet = False
+    dump_skeleton = False
+    # Parse options
+    for a in sys.argv[1:]:
+        if a in ['db', 'forrest', 'moin']:
+            compiler = a
+        elif a == '-q':
+            quiet = True
+        elif a == '-s':
+            dump_skeleton = True
+        else:
+            if source == '':
+                source = a
+            else:
+                target = a
+                
+    if dump_skeleton:
+        writeUtf8(source, compiler_skeletons[compiler])
+        sys.exit(0)
+        
+    if compiler == 'db':
+        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonDocbook, quiet)
         hComp = DocbookCompiler()
+    elif compiler == 'moin':
+        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonMoin, quiet)
+        hComp = MoinCompiler()
     else:
-        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonForrest)
+        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonForrest, quiet)
         hComp = ForrestCompiler()
     
-    # Generate XML files from content files + skeleton
-    for path,dirs,files in os.walk('.'):
-        for f in files:
-            if f.endswith(".wiki"):
-                contentFile = os.path.join(path, f)
-                target = "".join(os.path.splitext(f)[0:-1])+".xml"
-                target = os.path.join(path, target)
-                content = readUtf8(contentFile)
-                htmlResult = hComp.process(content)
-                writeUtf8(target, skeleton%htmlResult)
-
+    if source == '':
+        # Generate XML files from content files + skeleton
+        for path,dirs,files in os.walk('.'):
+            for f in files:
+                if f.endswith(".wiki"):
+                    source = os.path.join(path, f)
+                    target = "".join(os.path.splitext(f)[0:-1])+".xml"
+                    target = os.path.join(path, target)
+                    content = readUtf8(source, quiet)
+                    htmlResult = hComp.process(content)
+                    writeUtf8(target, skeleton%htmlResult)
+    else:
+        if target == '':
+            if f.endswith('.wiki'):
+                target = source[:-4]
+            else:
+                target = source
+            
+            if compiler == 'moin':
+                target += 'moin'
+            else:
+                target += 'xml'
+        content = readUtf8(source, quiet)
+        htmlResult = hComp.process(content)
+        writeUtf8(target, skeleton%htmlResult)
+        
 if __name__ == "__main__":
     main()
-    
