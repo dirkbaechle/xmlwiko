@@ -11,7 +11,7 @@ concentrated on creating simple pages for this website (or for Docbook XML).
 
 == Current version == version
 
-~[[xmlwiko.zip xmlwiko]]||Archive with the Python script (v1.4) and the $$*.wiki$$
+~[[xmlwiko.zip xmlwiko]]||Archive with the Python script (v1.5) and the $$*.wiki$$
 source for this page.
 
 == Usage ==

@@ -438,8 +438,7 @@ class WikiCompiler :
                 if varMatch:
                     # Catch vars
                     key = varMatch.group(1)
-                    if key in self.vars:
-                        self.vars[key] = varMatch.group(2)
+                    self.vars[key] = varMatch.group(2)
                 elif closeEnvMatch:
                     # Close last environment
                     self.closeLastEnvironment()
