@@ -1,6 +1,6 @@
 # coding: latin-1
-# Copyright (c) 2009, 2010 Dirk Baechle.
-# www: http://www.mydarc.de/dl9obn/programming/python/xmlwiko
+# Copyright (c) 2009,2010,2011,2012,2013 Dirk Baechle.
+# www: http://bitbucket.org/dirkbaechle/xmlwiko
 # mail: dl9obn AT darc.de
 #
 # This program is free software; you can redistribute it and/or modify it under
@@ -16,7 +16,7 @@
 # this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
-xmlwiko v1.5: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+xmlwiko v1.6: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
               Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
               the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
 """
@@ -902,68 +902,3 @@ compiler_skeletons = {'db' : defaultSkeletonDocbook,
                       'moin' : defaultSkeletonMoin,
                       'forrest' : defaultSkeletonForrest}
 
-
-def main():   
-    skeletonFileName = "skeleton.xml"
-    
-    source = ''
-    target = ''
-    compiler = 'forrest'
-    quiet = False
-    dump_skeleton = False
-    # Parse options
-    for a in sys.argv[1:]:
-        if a in ['db', 'forrest', 'moin']:
-            compiler = a
-        elif a == '-q':
-            quiet = True
-        elif a == '-s':
-            dump_skeleton = True
-        else:
-            if source == '':
-                source = a
-            else:
-                target = a
-                
-    if dump_skeleton:
-        writeUtf8(source, compiler_skeletons[compiler])
-        sys.exit(0)
-        
-    if compiler == 'db':
-        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonDocbook, quiet)
-        hComp = DocbookCompiler()
-    elif compiler == 'moin':
-        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonMoin, quiet)
-        hComp = MoinCompiler()
-    else:
-        skeleton = loadOrDefault(skeletonFileName, defaultSkeletonForrest, quiet)
-        hComp = ForrestCompiler()
-    
-    if source == '':
-        # Generate XML files from content files + skeleton
-        for path,dirs,files in os.walk('.'):
-            for f in files:
-                if f.endswith(".wiki"):
-                    source = os.path.join(path, f)
-                    target = "".join(os.path.splitext(f)[0:-1])+".xml"
-                    target = os.path.join(path, target)
-                    content = readUtf8(source, quiet)
-                    htmlResult = hComp.process(content)
-                    writeUtf8(target, skeleton%htmlResult)
-    else:
-        if target == '':
-            if f.endswith('.wiki'):
-                target = source[:-4]
-            else:
-                target = source
-            
-            if compiler == 'moin':
-                target += 'moin'
-            else:
-                target += 'xml'
-        content = readUtf8(source, quiet)
-        htmlResult = hComp.process(content)
-        writeUtf8(target, skeleton%htmlResult)
-        
-if __name__ == "__main__":
-    main()

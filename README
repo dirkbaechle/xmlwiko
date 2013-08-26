@@ -1,0 +1,29 @@
+xmlwiko - This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+          Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
+          the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
+v1.6 Dirk Baechle, <dl9obn@darc.de>, (2013-08-26) 
+
+1. Prerequisites
+----------------
+
+- Python2.x, with distutils installed (package "python-devel" under SuSE SLES 10)
+
+2. Installation
+---------------
+
+Change into the extracted/branched folder, get root (su) and execute the command
+
+  > python setup.py install
+  
+This should add the necessary Python modules and scripts to your local
+installation.
+
+3. Usage
+--------
+
+Calling the main script "xmlwiko" with the "-h" option displays the list of
+available commands.
+For more infos, read the usage message of "xmlwiko" or contact the author.
+
+Have fun!
+

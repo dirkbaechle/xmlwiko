@@ -1,0 +1,123 @@
+#!/usr/bin/env python2
+# coding: latin-1
+# Copyright (c) 2009,2010,2011,2012,2013 Dirk Baechle.
+# www: http://bitbucket.org/dirkbaechle/xmlwiko
+# mail: dl9obn AT darc.de
+#
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+"""
+xmlwiko v1.6: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+              Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
+              the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
+"""
+
+import sys
+import os
+import xmlwiko
+
+
+def usage():
+    print """xmlwiko v1.6 Dirk Baechle, <dl9obn@darc.de>, (2013-08-26)
+
+Usage:
+
+  xmlwiko [options] [format] [source_file] [target_file] 
+
+where valid options for 'format' are:
+
+  forrest - ApacheForrest XML (the default)
+  db      - Docbook-compliant XML
+  moin    - MoinMoin Wiki text
+
+Available options:
+
+  -s      - Dump default skeleton file for current output format
+  -q      - Quiet mode, suppress all verbose output
+  -h,
+  -?,
+  --help  - Display this help text
+  
+"""
+
+
+def main():
+    skeletonFileName = "skeleton.xml"
+    
+    source = ''
+    target = ''
+    compiler = 'forrest'
+    quiet = False
+    dump_skeleton = False
+    # Parse options
+    for a in sys.argv[1:]:
+        if a in ['db', 'forrest', 'moin']:
+            compiler = a
+        elif (a == '-h' or a == '-?' or a == '--help'):
+            usage()
+            sys.exit(0)
+        elif a == '-q':
+            quiet = True
+        elif a.startswith('-s'):
+            if len(a) == 2:
+                dump_skeleton = True
+            else:
+                skeletonFileName = a[2:]
+        else:
+            if source == '':
+                source = a
+            else:
+                target = a
+                
+    if dump_skeleton:
+        xmlwiko.writeUtf8(source, xmlwiko.compiler_skeletons[compiler])
+        sys.exit(0)
+        
+    if compiler == 'db':
+        skeleton = xmlwiko.loadOrDefault(skeletonFileName, xmlwiko.defaultSkeletonDocbook, quiet)
+        hComp = xmlwiko.DocbookCompiler()
+    elif compiler == 'moin':
+        skeleton = xmlwiko.loadOrDefault(skeletonFileName, xmlwiko.defaultSkeletonMoin, quiet)
+        hComp = xmlwiko.MoinCompiler()
+    else:
+        skeleton = xmlwiko.loadOrDefault(skeletonFileName, xmlwiko.defaultSkeletonForrest, quiet)
+        hComp = xmlwiko.ForrestCompiler()
+    
+    if source == '':
+        # Generate XML files from content files + skeleton
+        for path,dirs,files in os.walk('.'):
+            for f in files:
+                if f.endswith(".wiki"):
+                    source = os.path.join(path, f)
+                    target = "".join(os.path.splitext(f)[0:-1])+".xml"
+                    target = os.path.join(path, target)
+                    content = xmlwiko.readUtf8(source, quiet)
+                    htmlResult = hComp.process(content)
+                    xmlwiko.writeUtf8(target, skeleton%htmlResult)
+    else:
+        if target == '':
+            if f.endswith('.wiki'):
+                target = source[:-4]
+            else:
+                target = source
+            
+            if compiler == 'moin':
+                target += 'moin'
+            else:
+                target += 'xml'
+        content = xmlwiko.readUtf8(source, quiet)
+        htmlResult = hComp.process(content)
+        xmlwiko.writeUtf8(target, skeleton%htmlResult)
+
+if __name__ == "__main__":
+    main()

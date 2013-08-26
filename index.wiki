@@ -2,41 +2,57 @@
 @title: xmlwiko
 
 Fundamentally lazy, I always try to minimize my efforts to get work done...even when
-editing homepages. So when I planned to rewrite this site, I did not want
+editing homepages. So when I planned to rewrite my personal site, I didn't want
 to fiddle with ApacheForrest XML the whole day. Instead, inspired by 
 [[http://wiko.sf.net WiKo (the Wiki Compiler)]] I hacked together this little script.
 
-It is not pretty, nor complete...but it does a good job in keeping me
-concentrated on creating simple pages for this website (or for Docbook XML).
+It's neither pretty, nor complete...but it does a good job in keeping me
+concentrated on creating simple pages for websites (or for Docbook XML).
 
 == Current version == version
 
-~[[xmlwiko.zip xmlwiko]]||Archive with the Python script (v1.5) and the $$*.wiki$$
-source for this page.
+~[[http://bitbucket.org/dirkbaechle/xmlwiko xmlwiko]]||Bitbucket repo, where you can follow development and also find
+the most recent sources.
 
 == Usage ==
 
-Simply start the script as
+After installing the package once with
 
 Code:
-python xmlwiko.py
+sudo python setup.py install
+
+you can simply start the script as
+
+Code:
+xmlwiko
 
 and it will traverse the current directory. Whenever it finds a $$*.wiki$$ file
 it converts it into an XML file, conforming to the ApacheForrest DTD.
 
-You can also start $$xmlwiko$$ with an additional argument (the exact text
-does not matter):
+You can also start $$xmlwiko$$ with an additional argument for the output format
 
 Code:
-python xmlwiko.py db
+xmlwiko db
 
-and you get Docbook XML files instead. Easy!
+and you get Docbook XML files, or
+
+Code:
+xmlwiko moin
+
+which gives you MoinMoin Wiki output instead. Easy!
+Call
+
+Code:
+xmlwiko -h
+
+to get a help message with the full list of available options.
+
 
 == Basics == basic
 
 An xmlwiko file ($$*.wiki$$) is an UTF8 encoded file that consists of text blocks. These blocks
 are separated by one or more blank lines (2+ newlines). A text block itself
-can not contain blank lines.
+can't contain blank lines.
 
 At the start of each file you should place a header with the %%title%%
 and %%author%% variables as follows:
@@ -201,7 +217,7 @@ change between ordered ($$#$$), unordered ($$*$$) and description lists ($$~$$).
 The opening and closing of the single environments is handled by xmlwiko.
 
 Note:
-The description lists ($$~$$) can not be nested further, so the single %%~%%
+The description lists ($$~$$) can't be nested further, so the single %%~%%
 is always the rightmost element of a list specification!
 
 Code:
