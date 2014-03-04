@@ -75,35 +75,42 @@ var = re.compile(r"^@([^:]*): (.*)")
 env = re.compile(r"^({*)([a-zA-Z]+):(-*|-?[0-9]+)\s*(.*)$")
 closeenv = re.compile(r"^}}\s*$")
 
+#
+# Definition of output tags for the different formats
+#
+# Meaning of fields from left to right is: 
+#   tagstart, tagend, wrap_in_para, add_newline_on_close
+#
+
 # Forrest output tags
 envTagsForrest = {
-           'Section' : ['<section id="%(id)s"><title>%(title)s</title>', '</section>', True],
-           'Para' : ['<p>', '</p>', False],
-           'Code' : ['<source xml:space="preserve">', '</source>', False],
-           'Image' : ['<figure src="%(fref)s"%(atts)s>', '</figure>', False],
-           'Figure' : ['<figure src="%(fref)s"%(atts)s/><p><strong>Figure</strong>: ', '</p></figure>', False], 
-           'Abstract' : ['<p><strong>Abstract:</strong></p>', '', True],
-           'Remark'  : ['<p><strong>Remark:</strong></p>', '', True],
-           'Note'  : ['<note>', '</note>', False],
-           'Important'  : ['<p><strong>Important:</strong></p>', '', True],
-           'Warning'  : ['<warning>', '</warning>', False],
-           'Caution'  : ['<p><strong>Caution:</strong></p>', '', True],
-           'Keywords' : ['<p><strong>Keywords:</strong></p>', '', True],
-           'TODO'     : ['<p><strong>TODO:</strong></p>', '', True],
-           'Definition'  : ['<p><strong>Definition:</strong></p>', '', True],
-           'Lemma'    : ['<p><strong>Lemma:</strong></p>', '', True],
-           'Proof'    : ['<p><strong>Proof:</strong></p>', '', True],
-           'Theorem'  : ['<p><strong>Theorem:</strong></p>', '', True],
-           'Corollary': ['<p><strong>Corollary:</strong></p>', '', True],
-           'Raw': ['', '', False],
-            '#' : ['<ol>', '</ol>', False],
-            '*' : ['<ul>', '</ul>', False],
-            '~' : ['<dl>', '</dl>', False],
-            'olItem' : ['<li>', '</li>', False],
-            'ulItem' : ['<li>', '</li>', False],
-            'vlEntry' : ['', '', False],
-            'dtItem' : ['<dt>', '</dt>', False],
-            'ddItem' : ['<dd>', '</dd>', False]
+           'Section' : ['<section id="%(id)s"><title>%(title)s</title>', '</section>', True, True],
+           'Para' : ['<p>', '</p>', False, True],
+           'Code' : ['<source xml:space="preserve">', '</source>', False, True],
+           'Image' : ['<figure src="%(fref)s"%(atts)s>', '</figure>', False, True],
+           'Figure' : ['<figure src="%(fref)s"%(atts)s/><p><strong>Figure</strong>: ', '</p></figure>', False, True], 
+           'Abstract' : ['<p><strong>Abstract:</strong></p>', '', True, True],
+           'Remark'  : ['<p><strong>Remark:</strong></p>', '', True, True],
+           'Note'  : ['<note>', '</note>', False, True],
+           'Important'  : ['<p><strong>Important:</strong></p>', '', True, True],
+           'Warning'  : ['<warning>', '</warning>', False, True],
+           'Caution'  : ['<p><strong>Caution:</strong></p>', '', True, True],
+           'Keywords' : ['<p><strong>Keywords:</strong></p>', '', True, True],
+           'TODO'     : ['<p><strong>TODO:</strong></p>', '', True, True],
+           'Definition'  : ['<p><strong>Definition:</strong></p>', '', True, True],
+           'Lemma'    : ['<p><strong>Lemma:</strong></p>', '', True, True],
+           'Proof'    : ['<p><strong>Proof:</strong></p>', '', True, True],
+           'Theorem'  : ['<p><strong>Theorem:</strong></p>', '', True, True],
+           'Corollary': ['<p><strong>Corollary:</strong></p>', '', True, True],
+           'Raw': ['', '', False, True],
+            '#' : ['<ol>', '</ol>', False, True],
+            '*' : ['<ul>', '</ul>', False, True],
+            '~' : ['<dl>', '</dl>', False, True],
+            'olItem' : ['<li>', '</li>', False, True],
+            'ulItem' : ['<li>', '</li>', False, True],
+            'vlEntry' : ['', '', False, True],
+            'dtItem' : ['<dt>', '</dt>', False, True],
+            'ddItem' : ['<dd>', '</dd>', False, True]
            }
 inlineTagsForrest = {'em' : ['<em>', '</em>'],
               'strong' : ['<strong>', '</strong>'],
@@ -134,33 +141,33 @@ defaultSkeletonForrest = u"""<?xml version="1.0" encoding="utf-8"?>
 
 # Docbook output tags
 envTagsDocbook = {
-           'Section' : ['<section id="%(id)s"><title>%(title)s</title>', '</section>', True],
-           'Para' : ['<para>', '</para>', False],
-           'Code' : ['<screen>', '</screen>', False],
-           'Image' : ['<mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/>', '</imageobject></mediaobject>', False],
-           'Figure' : ['<figure><mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></mediaobject><title>', '</title></figure>', False],
-           'Abstract' : ['<abstract>', '</abstract>', True],
-           'Remark'  : ['<remark>', '</remark>', True],
-           'Note'  : ['<note>', '</note>', True],
-           'Important'  : ['<important>', '</important>', True],
-           'Warning'  : ['<warning>', '</warning>', True],
-           'Caution'  : ['<caution>', '</caution>', True],
-           'Keywords': ['<remark><para>Keywords:</para>', '</remark>', True],
-           'TODO': ['<remark><para>TODO:</para>', '</remark>', True],
-           'Definition': ['<remark><para>Definition:</para>', '</remark>', True],
-           'Lemma': ['<remark><para>Lemma:</para>', '</remark>', True],
-           'Proof': ['<remark><para>Proof:</para>', '</remark>', True],
-           'Theorem': ['<remark><para>Theorem:</para>', '</remark>', True],
-           'Corollary': ['<remark><para>Corollary:</para>', '</remark>', True],
-           'Raw': ['', '', False],
-           '#' : ['<orderedlist>', '</orderedlist>', False],
-           '*' : ['<itemizedlist>', '</itemizedlist>', False],
-           '~' : ['<variablelist>', '</variablelist>', False],
-           'olItem' : ['<listitem>', '</listitem>', True],
-           'ulItem' : ['<listitem>', '</listitem>', True],
-           'vlEntry' : ['<varlistentry>', '</varlistentry>', False],
-           'dtItem' : ['<term>', '</term>', False],
-           'ddItem' : ['<listitem>', '</listitem>', True]
+           'Section' : ['<section id="%(id)s"><title>%(title)s</title>', '</section>', True, True],
+           'Para' : ['<para>', '</para>', False, True],
+           'Code' : ['<screen>', '</screen>', False, True],
+           'Image' : ['<mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/>', '</imageobject></mediaobject>', False, True],
+           'Figure' : ['<figure><mediaobject><imageobject><imagedata fileref="%(fref)s"%(atts)s/></imageobject></mediaobject><title>', '</title></figure>', False, True],
+           'Abstract' : ['<abstract>', '</abstract>', True, True],
+           'Remark'  : ['<remark>', '</remark>', True, True],
+           'Note'  : ['<note>', '</note>', True, True],
+           'Important'  : ['<important>', '</important>', True, True],
+           'Warning'  : ['<warning>', '</warning>', True, True],
+           'Caution'  : ['<caution>', '</caution>', True, True],
+           'Keywords': ['<remark><para>Keywords:</para>', '</remark>', True, True],
+           'TODO': ['<remark><para>TODO:</para>', '</remark>', True, True],
+           'Definition': ['<remark><para>Definition:</para>', '</remark>', True, True],
+           'Lemma': ['<remark><para>Lemma:</para>', '</remark>', True, True],
+           'Proof': ['<remark><para>Proof:</para>', '</remark>', True, True],
+           'Theorem': ['<remark><para>Theorem:</para>', '</remark>', True, True],
+           'Corollary': ['<remark><para>Corollary:</para>', '</remark>', True, True],
+           'Raw': ['', '', False, True],
+           '#' : ['<orderedlist>', '</orderedlist>', False, True],
+           '*' : ['<itemizedlist>', '</itemizedlist>', False, True],
+           '~' : ['<variablelist>', '</variablelist>', False, True],
+           'olItem' : ['<listitem>', '</listitem>', True, True],
+           'ulItem' : ['<listitem>', '</listitem>', True, True],
+           'vlEntry' : ['<varlistentry>', '</varlistentry>', False, True],
+           'dtItem' : ['<term>', '</term>', False, True],
+           'ddItem' : ['<listitem>', '</listitem>', True, True]
            }
 inlineTagsDocbook = {'em' : ['<emphasis>', '</emphasis>'],
               'strong' : ['<emphasis role="bold">', '</emphasis>'],
@@ -193,33 +200,34 @@ defaultSkeletonDocbook = u"""<?xml version="1.0" encoding="UTF-8"?>
 
 # Moin output tags
 envTagsMoin = {
-           'Section' : ['= %(title)s =', '', False],
-           'Para' : ['', '', False],
-           'Code' : ['{{{\n', '}}}\n', False],
-           'Image' : ['{{attachment:%(fref)s}}', '\n', False],
-           'Figure' : ['{{attachment:%(fref)s}}\n', '\n', False],
-           'Abstract' : ['Abstract: ', '', False],
-           'Remark'  : ['Remark: ', '', False],
-           'Note'  : ['Note: ', '', False],
-           'Important'  : ['Important: ', '', False],
-           'Warning'  : ['Warning: ', '', False],
-           'Caution'  : ['Caution: ', '', False],
-           'Keywords': ['Keywords: ', '', False],
-           'TODO': ['TODO: ', '', False],
-           'Definition': ['Definition: ', '', False],
-           'Lemma': ['Lemma: ', '', False],
-           'Proof': ['Proof: ', '', False],
-           'Theorem': ['Theorem: ', '', False],
-           'Corollary': ['Corollary: ', '', False],
-           'Raw': ['', '', False],
-           '#' : ['', '', False],
-           '*' : ['', '', False],
-           '~' : ['', '', False],
-           'olItem' : ['* ', '', False],
-           'ulItem' : ['* ', '', False],
-           'vlEntry' : ['', '', False],
-           'dtItem' : ['', ':: ', False],
-           'ddItem' : ['', '', False]
+           'SectionTitleChar' : ['=', '=', False, False],
+           'Section' : ['%(title)s', '', False, True],
+           'Para' : ['', '', False, True],
+           'Code' : ['{{{\n', '}}}\n', False, True],
+           'Image' : ['{{attachment:%(fref)s}}', '\n', False, True],
+           'Figure' : ['{{attachment:%(fref)s}}\n', '\n', False, True],
+           'Abstract' : ['Abstract: ', '', False, True],
+           'Remark'  : ['Remark: ', '', False, True],
+           'Note'  : ['Note: ', '', False, True],
+           'Important'  : ['Important: ', '', False, True],
+           'Warning'  : ['Warning: ', '', False, True],
+           'Caution'  : ['Caution: ', '', False, True],
+           'Keywords': ['Keywords: ', '', False, True],
+           'TODO': ['TODO: ', '', False, True],
+           'Definition': ['Definition: ', '', False, True],
+           'Lemma': ['Lemma: ', '', False, True],
+           'Proof': ['Proof: ', '', False, True],
+           'Theorem': ['Theorem: ', '', False, True],
+           'Corollary': ['Corollary: ', '', False, True],
+           'Raw': ['', '', False, True],
+           '#' : ['', '', False, False],
+           '*' : ['', '', False, False],
+           '~' : ['', '', False, False],
+           'olItem' : [' 1.', '', False, False],
+           'ulItem' : [' *', '', False, False],
+           'vlEntry' : [' ', '', False, False],
+           'dtItem' : ['', ':: ', False, False],
+           'ddItem' : ['', '', False, False]
            }
 inlineTagsMoin = {'em' : ["''", "''"],
               'strong' : ["'''", "'''"],
@@ -320,7 +328,9 @@ class WikiCompiler :
         
         while len(self.openBlocks):
             tos = self.openBlocks.pop()
-            self.result += "%s\n" % self.envTags[tos][1]
+            self.result += "%s" % self.envTags[tos][1]
+            if self.envTags[tos][3]:
+                self.result += "\n"
             
     def closeOpenedBlocks(self, tag, num=1):
         """
@@ -331,7 +341,10 @@ class WikiCompiler :
         cnt = 0
         while len(self.openBlocks):
             tos = self.openBlocks.pop()
-            self.result += "%s\n" % self.envTags[tos][1]
+            self.result += "%s" % self.envTags[tos][1]
+            if self.envTags[tos][3]:
+                self.result += "\n"
+            
             if tos == tag:
                 cnt += 1
             if cnt == num:
@@ -551,6 +564,14 @@ class WikiCompiler :
         # Step 2: Open new section
         self.openBlocks.append('Section')
         self.sectionIndent += 1
+        # Handling of section titles that get constructed by prepending
+        # a number of chars to the title, representing the current indentation
+        # depth, e.g. MoinMoin format
+        if 'SectionTitleChar' in self.envTags:
+            newtitle = self.envTags['SectionTitleChar'][0]*(self.sectionIndent+1)
+            newtitle += " %s " % sectionTitle
+            newtitle += self.envTags['SectionTitleChar'][1]*(self.sectionIndent+1)
+            sectionTitle = newtitle
         text = "%s\n" % (self.envTags['Section'][0] % {'title':sectionTitle, 'id':sectionId})
         self.result += self.inlineReplace(text)
 
