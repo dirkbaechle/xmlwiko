@@ -507,6 +507,12 @@ class WikiCompiler :
             self.lastListItem = ""
             self.parseMode = PM_VOID
 
+    def escapeCodeText(self, text):
+        """
+        Used to replace special chars like <, with their
+        XHTML equivalent &lt; for example.
+        """
+        return text
 
     def processText(self, text, mode=PM_VOID):
         """
@@ -520,6 +526,7 @@ class WikiCompiler :
             text = self.inlineReplace(text)
         else:
             text = self.replaceBlanks(text)
+            text = self.escapeCodeText(text)
             text = processVerbatim(text, self.codeType)
  
         # Add text to result
@@ -896,6 +903,16 @@ class ForrestCompiler(WikiCompiler):
         self.dictTags = dictTagsForrest
         self.filters = filterForrest
 
+    def escapeCodeText(self, text):
+        """
+        Used to replace special chars like <, with their
+        XHTML equivalent &lt; for example.
+        """
+        text = text.replace("&","&amp;")
+        text = text.replace("<","&lt;")
+        text = text.replace(">","&gt;")
+        return text
+
 class DocbookCompiler(WikiCompiler):
     """
     The WikiCompiler for Docbook XML output.
@@ -906,6 +923,16 @@ class DocbookCompiler(WikiCompiler):
         self.inlineTags = inlineTagsDocbook
         self.dictTags = dictTagsDocbook
         self.filters = filterDocbook
+
+    def escapeCodeText(self, text):
+        """
+        Used to replace special chars like <, with their
+        XHTML equivalent &lt; for example.
+        """
+        text = text.replace("&","&amp;")
+        text = text.replace("<","&lt;")
+        text = text.replace(">","&gt;")
+        return text
 
 class MoinCompiler(WikiCompiler):
     """
