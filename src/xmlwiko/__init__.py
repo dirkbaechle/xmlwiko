@@ -1,5 +1,5 @@
 # coding: latin-1
-# Copyright (c) 2009,2010,2011,2012,2013 Dirk Baechle.
+# Copyright (c) 2009,2010,2011,2012,2013,2014 Dirk Baechle.
 # www: http://bitbucket.org/dirkbaechle/xmlwiko
 # mail: dl9obn AT darc.de
 #
@@ -16,7 +16,7 @@
 # this program; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 """
-xmlwiko v1.6: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
+xmlwiko v1.7: This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
               Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
               the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
 """
@@ -53,7 +53,7 @@ def processVerbatim(txt, language):
         return highlight(txt, lexer, formatter)
 
 # Regular expressions
-header = re.compile(r"^==(\+|-*|-?[0-9]+)\s*([^=]+)\s*=*\s*(.*)$")
+header = re.compile(r"^==(\+|-?[0-9]+|-*)\s*([^=]+)\s*=*\s*(.*)$")
 
 em = re.compile(r"\\\\([^\\]*)\\\\")
 strong = re.compile(r"!!([^!]*)!!")

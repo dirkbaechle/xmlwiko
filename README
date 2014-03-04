@@ -1,7 +1,7 @@
 xmlwiko - This script generates XML files as input to ApacheForrest or Docbook from Wiki like input.
           Inspired by WiKo (the WikiCompiler, http://wiko.sf.net) it tries to simplify
           the setup and editing of web pages (for Forrest) or simple manuals and descriptions (Docbook).
-v1.6 Dirk Baechle, <dl9obn@darc.de>, (2013-08-26) 
+v1.7 Dirk Baechle, <dl9obn@darc.de>, (2014-03-04) 
 
 1. Prerequisites
 ----------------
