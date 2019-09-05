@@ -251,6 +251,61 @@ by %(author)s
 %(content)s
 """
 
+# reST output tags
+envTagsRest = {
+           'SectionTitleUnderlineChars' : ['=-+_~:<>', '', False, False],
+           'Section' : ['%(title)s', '', False, True],
+           'Para' : ['', '', False, True],
+           'Code' : ['::\n\n', '\n', False, True],
+           'Image' : ['.. Image:: %(fref)s', '\n', False, True],
+           'Figure' : ['.. Image:: %(fref)s\n', '\n', False, True],
+           'Abstract' : ['**Abstract**: ', '', False, True],
+           'Remark'  : ['**Remark**: ', '', False, True],
+           'Note'  : ['.. note:: ', '', False, True],
+           'Important'  : ['.. important:: ', '', False, True],
+           'Warning'  : ['.. warning:: ', '', False, True],
+           'Caution'  : ['.. caution:: ', '', False, True],
+           'Keywords': ['**Keywords**: ', '', False, True],
+           'TODO': ['**TODO**: ', '', False, True],
+           'Definition': ['**Definition**: ', '', False, True],
+           'Lemma': ['**Lemma**: ', '', False, True],
+           'Proof': ['**Proof**: ', '', False, True],
+           'Theorem': ['**Theorem**: ', '', False, True],
+           'Corollary': ['Corollary: ', '', False, True],
+           'Raw': ['', '', False, True],
+           '#' : ['', '', False, False],
+           '*' : ['', '', False, False],
+           '~' : ['', '', False, False],
+           'olItem' : ['#. ', '', False, False],
+           'ulItem' : ['* ', '', False, False],
+           'vlEntry' : ['', '', False, False],
+           'dtItem' : ['', ':: ', False, False],
+           'ddItem' : ['\n  ', '', False, False]
+           }
+inlineTagsRest = {'em' : ["*", "*"],
+              'strong' : ["**", "**"],
+              'quote' : ['"', '"'],
+              'code' : ['``', '``'],
+              'quotedcode' : ['"``', '``"'],
+              'anchor' : ['.. _', ':\n']}
+dictTagsRest = {'ulink' : '`%(linktext)s <%(url)s/>`_',
+                'link' : '`%(linktext)s <%(url)s/>`_',
+                'xref' : '%(url)s_',
+                'inlinemediaobject' : '\n.. Image:: %(fref)s\n'
+               }
+filterRest = {'rest' : '%(content)s'
+             }
+
+# Default template for a reStructuredText file
+defaultSkeletonRest = u"""####################################
+%(title)s
+####################################
+
+:Author: %(author)s
+
+%(content)s
+"""
+
 
 def stripUtfMarker(content) :
     """
@@ -571,14 +626,20 @@ class WikiCompiler :
         # Step 2: Open new section
         self.openBlocks.append('Section')
         self.sectionIndent += 1
-        # Handling of section titles that get constructed by prepending
-        # a number of chars to the title, representing the current indentation
-        # depth, e.g. MoinMoin format
         if 'SectionTitleChar' in self.envTags:
+            # Handling of section titles that get constructed by prepending
+            # a number of chars to the title, representing the current indentation
+            # depth, e.g. MoinMoin format
             newtitle = self.envTags['SectionTitleChar'][0]*(self.sectionIndent+1)
             newtitle += " %s " % sectionTitle
             newtitle += self.envTags['SectionTitleChar'][1]*(self.sectionIndent+1)
             sectionTitle = newtitle
+        elif 'SectionTitleUnderlineChars' in self.envTags:
+            # Handling reST style section titles, where the char for the
+            # underline changes with the level of indent
+            linechars = self.envTags['SectionTitleUnderlineChars'][0]
+            tchar = linechars[self.sectionIndent % len(linechars)]
+            sectionTitle += "\n"+len(sectionTitle)*tchar
         text = "%s\n" % (self.envTags['Section'][0] % {'title':sectionTitle, 'id':sectionId})
         self.result += self.inlineReplace(text)
 
@@ -945,8 +1006,28 @@ class MoinCompiler(WikiCompiler):
         self.dictTags = dictTagsMoin
         self.filters = filterMoin
 
+class RestCompiler(WikiCompiler):
+    """
+    The WikiCompiler for reST output.
+    """
+
+    def __init__(self):
+        self.envTags = envTagsRest
+        self.inlineTags = inlineTagsRest
+        self.dictTags = dictTagsRest
+        self.filters = filterRest
+
+    def escapeCodeText(self, text):
+        """
+        Used to replace special chars like <, with their
+        XHTML equivalent &lt; for example.
+        """
+        text = " "*4 + text
+        return text
+
 
 compiler_skeletons = {'db' : defaultSkeletonDocbook,
                       'moin' : defaultSkeletonMoin,
+                      'rest' : defaultSkeletonRest,
                       'forrest' : defaultSkeletonForrest}
 

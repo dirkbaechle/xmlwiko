@@ -39,6 +39,7 @@ where valid options for 'format' are:
   forrest - ApacheForrest XML (the default)
   db      - Docbook-compliant XML
   moin    - MoinMoin Wiki text
+  rest    - reStructuredText (docutils)
 
 Available options:
 
@@ -50,9 +51,14 @@ Available options:
   
 """
 
+# Default names for skeleton files
+skeletonDefaultFile = {'db' : 'skeleton.xml',
+                       'forrest' : 'skeleton.xml',
+                       'moin' : 'skeleton.moin',
+                       'rest' : 'skeleton.rst'}
 
 def main():
-    skeletonFileName = "skeleton.xml"
+    skeletonFileName = ""
     
     source = ''
     target = ''
@@ -61,7 +67,7 @@ def main():
     dump_skeleton = False
     # Parse options
     for a in sys.argv[1:]:
-        if a in ['db', 'forrest', 'moin']:
+        if a in ['db', 'forrest', 'moin', 'rest']:
             compiler = a
         elif (a == '-h' or a == '-?' or a == '--help'):
             usage()
@@ -79,16 +85,29 @@ def main():
             else:
                 target = a
                 
+    # Init skeleton filename
+    if not skeletonFileName:
+        if compiler in skeletonDefaultFile:
+            skeletonFileName = skeletonDefaultFile[compiler]
+        else:
+            print "Error: no default skeleton filename for '%s' available!" % compiler
+            sys.exit(1)
+
     if dump_skeleton:
+        if not source:
+            source = skeletonFileName
         xmlwiko.writeUtf8(source, xmlwiko.compiler_skeletons[compiler])
         sys.exit(0)
-        
+
     if compiler == 'db':
         skeleton = xmlwiko.loadOrDefault(skeletonFileName, xmlwiko.defaultSkeletonDocbook, quiet)
         hComp = xmlwiko.DocbookCompiler()
     elif compiler == 'moin':
         skeleton = xmlwiko.loadOrDefault(skeletonFileName, xmlwiko.defaultSkeletonMoin, quiet)
         hComp = xmlwiko.MoinCompiler()
+    elif compiler == 'rest':
+        skeleton = xmlwiko.loadOrDefault(skeletonFileName, xmlwiko.defaultSkeletonRest, quiet)
+        hComp = xmlwiko.RestCompiler()
     else:
         skeleton = xmlwiko.loadOrDefault(skeletonFileName, xmlwiko.defaultSkeletonForrest, quiet)
         hComp = xmlwiko.ForrestCompiler()
@@ -99,20 +118,28 @@ def main():
             for f in files:
                 if f.endswith(".wiki"):
                     source = os.path.join(path, f)
-                    target = "".join(os.path.splitext(f)[0:-1])+".xml"
+                    target = "".join(os.path.splitext(f)[0:-1])
+                    if compiler == 'moin':
+                        target += '.moin'
+                    elif compiler == 'rest':
+                        target += '.rst'
+                    else:
+                        target += '.xml'
                     target = os.path.join(path, target)
                     content = xmlwiko.readUtf8(source, quiet)
                     htmlResult = hComp.process(content)
                     xmlwiko.writeUtf8(target, skeleton%htmlResult)
     else:
         if target == '':
-            if f.endswith('.wiki'):
+            if source.endswith('.wiki'):
                 target = source[:-4]
             else:
                 target = source
             
             if compiler == 'moin':
                 target += 'moin'
+            elif compiler == 'rest':
+                target += 'rst'
             else:
                 target += 'xml'
         content = xmlwiko.readUtf8(source, quiet)
